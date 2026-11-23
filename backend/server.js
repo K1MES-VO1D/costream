@@ -5,9 +5,20 @@ import { fileURLToPath } from "node:url";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 
 const PORT = process.env.PORT || 4000;
-const JWT_SECRET = process.env.JWT_SECRET || "dev-only-secret-change-me";
+// Use JWT_SECRET if set; otherwise generate a random secret once and keep it in a git-ignored file.
+const secretFile = path.join(path.dirname(fileURLToPath(import.meta.url)), ".jwt-secret");
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  (fs.existsSync(secretFile)
+    ? fs.readFileSync(secretFile, "utf8").trim()
+    : (() => {
+        const s = crypto.randomBytes(48).toString("hex");
+        fs.writeFileSync(secretFile, s, { mode: 0o600 });
+        return s;
+      })());
 
 // Catalog of streaming services, each with tiered plans (illustrative monthly prices in EUR)
 const plan = (id, name, price, quality, screens) => ({ id, name, price, quality, screens });

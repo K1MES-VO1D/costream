@@ -20,7 +20,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173, proxies /ap
 ```bash
 pkg update && pkg install nodejs git
 cd costream/backend && npm install
-JWT_SECRET=choose-a-secret node server.js
+node server.js
 ```
 4. Open `http://localhost:4000` in Chrome on the phone → menu → **Add to Home screen** (note: service worker/PWA install needs HTTPS or localhost; localhost works).
 5. Other devices on the same Wi-Fi can use `http://<phone-ip>:4000` (`ifconfig` in Termux).
