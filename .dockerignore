@@ -1,0 +1,5 @@
+**/node_modules
+**/dist
+frontend/android
+backend/.jwt-secret
+.git
