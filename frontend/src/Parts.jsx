@@ -8,10 +8,16 @@ export function AuthForm({ onAuth }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [needTotp, setNeedTotp] = useState(false);
+  const [sent, setSent] = useState(null);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const title = { login: "Inloggen", register: "Account aanmaken", reset: "Wachtwoord vergeten" }[mode];
   const action = { login: api.login, register: api.register, reset: api.reset }[mode];
 
+  const sendCode = async () => {
+    setError("");
+    if (!form.email) return setError("Vul eerst je e-mailadres in");
+    try { setSent(await api.forgot(form.email)); } catch (err) { setError(err.message); }
+  };
   const submit = async (e) => {
     e.preventDefault();
     setError("");
@@ -36,8 +42,9 @@ export function AuthForm({ onAuth }) {
       <input className="form-control mb-2" type="email" placeholder="E-mail" value={form.email} onChange={set("email")} autoComplete="email" maxLength={254} required />
       {mode === "reset" && (
         <>
-          <small className="text-secondary d-block mb-2">Vul de 6-cijferige code uit je authenticator-app in (of een back-upcode). Geen authenticator? Draai in Termux <code>node ~/difonti/backend/reset-code.js jouw@email</code> en vul die code in.</small>
-          <input className="form-control mb-2" placeholder="Authenticator-, back-up- of resetcode" value={form.code} onChange={set("code")} autoCapitalize="characters" autoComplete="one-time-code" maxLength={20} required />
+          <button type="button" className="btn btn-outline-light mb-2" onClick={sendCode}>{sent ? "Code opnieuw sturen" : "Stuur code naar mijn e-mail"}</button>
+          {sent && <small className="text-secondary d-block mb-2">{sent.mail ? "Als dit adres bij een account hoort, is er een code gemaild. Geldig 15 minuten." : "Er is nog geen mailserver ingesteld; de code staat in Termux (zie README)."}</small>}
+          <input className="form-control mb-2" placeholder="Code uit je e-mail (of authenticator)" value={form.code} onChange={set("code")} autoCapitalize="characters" autoComplete="one-time-code" maxLength={20} required />
         </>
       )}
       {mode === "login" && needTotp && (

@@ -25,6 +25,7 @@ export const api = {
   removeEntry: (id) => request(`/library/${encodeURIComponent(id)}`, { method: "DELETE" }),
   register: (b) => request("/auth/register", { method: "POST", body: b }),
   login: (b) => request("/auth/login", { method: "POST", body: b }),
+  forgot: (email) => request("/auth/forgot", { method: "POST", body: { email } }),
   reset: (b) => request("/auth/reset", { method: "POST", body: b }),
   totpSetup: () => request("/totp/setup", { method: "POST" }),
   totpEnable: (code) => request("/totp/enable", { method: "POST", body: { code } }),

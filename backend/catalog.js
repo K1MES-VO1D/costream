@@ -47,14 +47,19 @@ export const titles = [...seed];
 
 const setTitles = (list) => {
   const seen = new Set();
-  const merged = [...seed, ...list].filter((t) => t.year >= MIN_YEAR && !seen.has(t.id) && seen.add(t.id));
+  const merged = [...seed, ...list].filter((t) => t.year >= MIN_YEAR && (seed.includes(t) || isQuality(t)) && !seen.has(t.id) && seen.add(t.id));
   titles.splice(0, titles.length, ...merged);
 };
 
+// Quality gate: drops obscure, vague or junk entries (clips, trailers, reels, numbered parts, id-like titles)
+const JUNK = /\b(untitled|trailer|teaser|clip|sample|test|reel|raw|footage|home movie|newsreel|promo|part \d+|vol\.? ?\d+|disc \d+|compilation|collection|archive|podcast|lecture|slideshow)\b/i;
+export const isQuality = (t) =>
+  t.title.length >= 3 && !JUNK.test(t.title) && !/[_]{1}|^[\d\W]+$/.test(t.title) && (t.why || "").length >= 30 && !/^\W*$/.test(t.why);
+
 async function fromArchive(query, type, rows) {
-  const url = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier&fl[]=title&fl[]=description&fl[]=year&sort[]=downloads+desc&rows=${rows}&output=json`;
+  const url = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier&fl[]=title&fl[]=description&fl[]=year&fl[]=downloads&sort[]=downloads+desc&rows=${rows}&output=json`;
   const { response } = await get(url);
-  return response.docs.map((d) => ({
+  return response.docs.filter((d) => Number(d.downloads) >= 25000 && clean(d.description).length >= 30).map((d) => ({
     id: `a-${d.identifier}`, title: clean(d.title, 90), type, year: Number(d.year) >= MIN_YEAR && Number(d.year) <= MAX_YEAR ? Number(d.year) : releaseYear(d.title), serviceId: "archive",
     why: clean(d.description) || "Publiek domein via het Internet Archive.", archiveId: d.identifier,
     poster: `https://archive.org/services/img/${d.identifier}`, colors: colorsFor(d.identifier), free: true,
@@ -62,9 +67,9 @@ async function fromArchive(query, type, rows) {
 }
 
 async function fromDailymotion(search, type, limit) {
-  const url = `https://api.dailymotion.com/videos?search=${encodeURIComponent(search)}&fields=id,title,description,thumbnail_480_url,duration,created_time&limit=${limit}&sort=relevance&longer_than=${type === "film" ? 40 : 15}&flags=no_live`;
+  const url = `https://api.dailymotion.com/videos?search=${encodeURIComponent(search)}&fields=id,title,description,thumbnail_480_url,duration,created_time,views_total&limit=${limit}&sort=relevance&longer_than=${type === "film" ? 40 : 15}&flags=no_live`;
   const { list } = await get(url);
-  return list.map((v) => ({
+  return list.filter((v) => v.views_total >= 50000 && clean(v.description).length >= 30 && v.duration >= (type === "film" ? 3000 : 900)).map((v) => ({
     id: `d-${v.id}`, title: clean(v.title, 90), type, year: releaseYear(v.title, v.description), serviceId: "dailymotion",
     why: clean(v.description) || "Gratis op Dailymotion.", runtime: `${Math.round(v.duration / 60)} min`,
     embedUrl: `https://www.dailymotion.com/embed/video/${v.id}`, poster: v.thumbnail_480_url, colors: colorsFor(v.id), free: true,
@@ -97,15 +102,15 @@ async function fromYoutube(query, type) {
 
 export async function refreshCatalog() {
   const jobs = [
-    fromArchive(`collection:feature_films AND mediatype:movies AND year:[${MIN_YEAR} TO ${MAX_YEAR}]`, "film", 80),
-    fromArchive(`collection:classic_tv AND mediatype:movies AND year:[${MIN_YEAR} TO ${MAX_YEAR}]`, "series", 50),
+    fromArchive(`collection:feature_films AND mediatype:movies AND year:[${MIN_YEAR} TO ${MAX_YEAR}]`, "film", 150),
+    fromArchive(`collection:classic_tv AND mediatype:movies AND year:[${MIN_YEAR} TO ${MAX_YEAR}]`, "series", 80),
     fromDailymotion("classic full movie creative commons", "film", 30),
     fromDailymotion("classic tv series full episode", "series", 25),
   ];
   if (process.env.VIMEO_TOKEN) jobs.push(fromVimeo("public domain film 1940s", "film"), fromVimeo("web series", "series"));
   if (process.env.YOUTUBE_API_KEY) jobs.push(fromYoutube("full movie creative commons", "film"), fromYoutube("classic tv series full episode", "series"));
   const results = await Promise.allSettled(jobs);
-  const ok = results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value).filter((t) => t.title);
+  const ok = results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value).filter((t) => t.title && isQuality(t));
   results.filter((r) => r.status === "rejected").forEach((r) => console.log("catalog source skipped:", r.reason.message));
   if (ok.length) {
     setTitles(ok);

@@ -1,3 +1,4 @@
+import "./env.js";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,6 +11,7 @@ import { promisify } from "node:util";
 import { services, titles, refreshCatalog, loadCache, archiveVideoUrl } from "./catalog.js";
 import { db, save, dir as dataDir } from "./store.js";
 import QRCode from "qrcode";
+import { sendMail, mailEnabled } from "./mailer.js";
 import { newSecret, matchStep, otpauth, seal, unseal } from "./totp.js";
 
 const PORT = process.env.PORT || 4000;
@@ -174,6 +176,24 @@ app.post("/api/auth/login", authLimit, async (req, res) => {
 // so no email server is needed. Only a hash of the code is stored, it expires and allows 5 tries.
 const resetsFile = path.join(dataDir, "resets.json");
 const readResets = () => { try { return JSON.parse(fs.readFileSync(resetsFile, "utf8")); } catch { return {}; } };
+const writeResets = (r) => fs.writeFileSync(resetsFile, JSON.stringify(r), { mode: 0o600 });
+const lastMail = new Map();
+// Emails a one-time reset code. Always answers the same, so it can't be used to find out which emails have accounts.
+app.post("/api/auth/forgot", authLimit, async (req, res) => {
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const user = findByEmail(email);
+  const wait = Date.now() - (lastMail.get(email) || 0) < 60_000;
+  if (user && !wait) {
+    lastMail.set(email, Date.now());
+    const code = Array.from(crypto.randomBytes(8), (b) => "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[b % 31]).join("");
+    const resets = readResets();
+    resets[email] = { hash: sha(code), exp: Date.now() + 15 * 60_000, tries: 0 };
+    writeResets(resets);
+    sendMail(email, "Je Difonti-resetcode", `Hoi ${user.name},\n\nJe resetcode is: ${code}\n\nDeze code is 15 minuten geldig. Heb je dit niet aangevraagd? Dan kun je deze mail negeren.`).catch((e) => console.log("mail failed:", e.message));
+  }
+  res.json({ ok: true, mail: mailEnabled });
+});
+
 app.post("/api/auth/reset", authLimit, async (req, res) => {
   const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
   const code = typeof req.body?.code === "string" ? req.body.code.trim().toUpperCase().slice(0, 20) : "";

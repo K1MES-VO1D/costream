@@ -4,3 +4,4 @@ frontend/android/app/build/
 frontend/android/.gradle/
 .catalog-cache.json
 backend/data/
+backend/.env

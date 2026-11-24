@@ -35,8 +35,12 @@ export function Tips({ titles: allTitles, services, watch, onToggle, onOpen, onP
   const ref = useRef(null);
   const drag = useRef(null);
   const [index, setIndex] = useState(0);
-  const titles = allTitles.slice(0, 40);
+  const base = allTitles.slice(0, 40);
+  const [rounds, setRounds] = useState(1);
+  // Endless: the same picks repeat in a new round when you near the end
+  const titles = Array.from({ length: rounds }, (_, r) => base.map((t) => ({ t, key: `${r}-${t.id}` }))).flat();
   const count = promoCards.length + titles.length;
+  useEffect(() => { if (base.length && index >= count - 6) setRounds((r) => r + 1); }, [index, count, base.length]);
 
   const onScroll = () => {
     const el = ref.current;
@@ -82,8 +86,8 @@ export function Tips({ titles: allTitles, services, watch, onToggle, onOpen, onP
             </div>
           </article>
         ))}
-        {titles.map((t) => (
-          <article key={t.id} className="tip-card clickable" style={t.poster ? { ...bg(t), backgroundImage: `linear-gradient(transparent 30%, #061014), url(${t.poster})`, backgroundSize: "cover", backgroundPosition: "center" } : bg(t)} onClick={() => open(t)}>
+        {titles.map(({ t, key }) => (
+          <article key={key} className="tip-card clickable" style={t.poster ? { ...bg(t), backgroundImage: `linear-gradient(transparent 30%, #061014), url(${t.poster})`, backgroundSize: "cover", backgroundPosition: "center" } : bg(t)} onClick={() => open(t)}>
             <div className="tip-content">
               <span className="tag">{services.find((s) => s.id === t.serviceId)?.name}</span>
               <small className="meta">{label(t)}</small>
@@ -96,11 +100,11 @@ export function Tips({ titles: allTitles, services, watch, onToggle, onOpen, onP
             </div>
           </article>
         ))}
-        {!titles.length && <p className="text-white-50 p-4">Geen tips voor deze filters. Pas je filters aan.</p>}
+        {!base.length && <p className="text-white-50 p-4">Geen tips voor deze filters. Pas je filters aan.</p>}
       </div>
       <div className="swipe-arrows">
         <button onClick={() => go(index - 1)} disabled={index === 0} aria-label="Vorige"><Icon name="back" size={20} /></button>
-        <button onClick={() => go(index + 1)} disabled={index >= count - 1} aria-label="Volgende"><Icon name="next" size={20} /></button>
+        <button onClick={() => go(index + 1)} disabled={!base.length && index >= count - 1} aria-label="Volgende"><Icon name="next" size={20} /></button>
       </div>
     </>
   );
