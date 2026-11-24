@@ -83,3 +83,18 @@ body { font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, Roboto,
 
 .webframe-body { flex: 1; min-height: 0; background: #000; }
 .webframe-body iframe { width: 100%; height: 100%; border: 0; }
+
+/* Pie menu */
+.pie-backdrop { position: absolute; inset: 0; z-index: 18; background: rgba(8, 20, 28, .6); backdrop-filter: blur(3px); animation: pie-fade .2s ease; }
+@keyframes pie-fade { from { opacity: 0; } }
+.pie { position: absolute; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom) + 8px); width: 0; height: 0; z-index: 19; pointer-events: none; }
+.pie.open { pointer-events: auto; }
+.pie-item { position: absolute; left: -33px; top: -33px; width: 66px; height: 66px; border-radius: 50%; border: 1px solid rgba(232, 184, 106, .7); background: var(--brand-bg); color: var(--sand);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-size: .6rem; letter-spacing: .03em;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .4); opacity: 0; transform: translate(0, 0) scale(.2);
+  transition: transform .38s cubic-bezier(.34, 1.56, .64, 1) calc(var(--i) * 35ms), opacity .2s ease calc(var(--i) * 35ms); }
+.pie.open .pie-item { opacity: 1; transform: translate(calc(cos(var(--a)) * 138px), calc(sin(var(--a)) * -138px - 20px)) scale(1); }
+.pie-item:hover, .pie-item:active { background: var(--accent); color: var(--brand-bg); }
+.bottom-nav button.center.open { color: var(--brand-bg); }
+.bottom-nav button.center svg { transition: transform .3s ease; }
+.bottom-nav button.center.open svg { transform: rotate(135deg); }

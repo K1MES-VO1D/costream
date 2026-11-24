@@ -37,6 +37,7 @@ export default function App() {
   const [titles, setTitles] = useState([]);
   const [watch, setWatch] = useState([]);
   const [view, setView] = useState("tips");
+  const [pie, setPie] = useState(false);
   const [error, setError] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [activeServices, setActiveServices] = useState([]);
@@ -125,9 +126,27 @@ export default function App() {
         </section>
       )}
 
+
+      {pie && <div className="pie-backdrop" onClick={() => setPie(false)} />}
+      <div className={`pie ${pie ? "open" : ""}`} aria-hidden={!pie}>
+        {[
+          ["Home", "home", () => setView("tips")],
+          ["Lijsten", "list", () => setView("lists")],
+          ["Zoek", "search", () => setView("search")],
+          ["Link", "link", () => setView("search")],
+          ["Filters", "filters", () => setShowFilters(true)],
+          ["Tour", "info", () => setTour(true)],
+          ["Account", "user", () => setView("account")],
+        ].map(([label, icon, run], i, a) => (
+          <button key={label} tabIndex={pie ? 0 : -1} className="pie-item" style={{ "--a": `${180 - (i * 180) / (a.length - 1)}deg`, "--i": i }} onClick={() => { setPie(false); run(); }}>
+            <Icon name={icon} size={24} /><span>{label}</span>
+          </button>
+        ))}
+      </div>
+
       <nav className="bottom-nav">
         <button className={view === "lists" ? "active" : ""} onClick={() => setView("lists")}><Icon name="list" /><span>Mijn lijsten</span></button>
-        <button className={`center ${view === "tips" ? "active" : ""}`} onClick={() => setView("tips")}><Icon name="cards" /><span>Home</span></button>
+        <button className={`center ${pie ? "open" : ""} ${view === "tips" ? "active" : ""}`} onClick={() => setPie((o) => !o)} aria-expanded={pie} aria-label="Menu"><Icon name={pie ? "plus" : "cards"} /><span>Home</span></button>
         <button className={view === "search" ? "active" : ""} onClick={() => setView("search")}><Icon name="search" /><span>Zoek</span></button>
       </nav>
 

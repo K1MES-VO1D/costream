@@ -13,6 +13,9 @@ export const Icon = ({ name, size = 26 }) => {
     bookmark: <path d="M7 4h10v16l-5-3.5L7 20z" />,
     tv: <><rect x="3" y="5" width="18" height="12" rx="2" /><path d="M9 21h6" /></>,
     wallet: <><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a1 1 0 0 1-1-1z" /><path d="M4 7V6a2 2 0 0 1 2-2h10M16 14h2" /></>,
+    home: <path d="M4 11l8-7 8 7M6 10v10h12V10" />,
+    info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.01" /></>,
+    link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1" />,
     swipe: <><path d="M4 12h12M12 8l4 4-4 4" /><path d="M20 6v12" /></>,
   };
   return (
