@@ -73,7 +73,7 @@ export function Tips({ titles: allTitles, services, watch, onToggle, onOpen, onP
   return (
     <>
       <div className="dots" aria-hidden="true">
-        {Array.from({ length: Math.min(count, 12) }, (_, i) => <span key={i} className={i === index ? "on" : ""} />)}
+        {Array.from({ length: 9 }, (_, i) => <span key={i} className={i === index % 9 ? "on" : ""} />)}
       </div>
       <div className="swipe" ref={ref} onScroll={onScroll} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up}>
         {promoCards.map((c) => (

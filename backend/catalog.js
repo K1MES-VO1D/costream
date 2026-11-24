@@ -106,7 +106,10 @@ export async function refreshCatalog() {
     fromDailymotion("classic tv series full episode", "series", 25),
   ];
   if (process.env.VIMEO_TOKEN) jobs.push(fromVimeo("public domain film 1940s", "film"), fromVimeo("web series", "series"));
-  if (process.env.YOUTUBE_API_KEY) jobs.push(fromYoutube("full movie creative commons", "film"), fromYoutube("classic tv series full episode", "series"));
+  if (process.env.YOUTUBE_API_KEY) jobs.push(
+    ...["full movie public domain", "classic full movie creative commons", "classic western full movie", "classic horror full movie", "classic sci-fi full movie", "classic comedy full movie"].map((q) => fromYoutube(q, "film")),
+    ...["classic tv series full episode", "public domain tv series episode"].map((q) => fromYoutube(q, "series")),
+  );
   const results = await Promise.allSettled(jobs);
   const ok = results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value).filter((t) => t.title && isQuality(t));
   results.filter((r) => r.status === "rejected").forEach((r) => console.log("catalog source skipped:", r.reason.message));
