@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import { Icon } from "./Icons.jsx";
+import { normalizeLink, detectService, openLink } from "./deeplinks.js";
 
 const bg = (t) => ({ "--c1": t.colors[0], "--c2": t.colors[1] });
 const label = (t) => `${t.type === "film" ? "Film" : "Serie"} · ${t.year}`;
@@ -9,6 +10,7 @@ export const isPlayable = (t) => Boolean(t.videoUrl || t.embedUrl || t.youtubeId
 
 function PlayButton({ title, service, onPlay }) {
   if (isPlayable(title)) return <button className="pill-btn play" onClick={stop(() => onPlay(title))}><Icon name="play" size={14} /> Kijk nu gratis</button>;
+  if (title.deepLink) return <button className="pill-btn play" onClick={stop(() => openLink(title.deepLink))}><Icon name="play" size={14} /> Kijk op {title.linkName || service?.name}</button>;
   if (service?.watchUrl) return <button className="pill-btn play" onClick={stop(() => openService(service, title))}><Icon name="play" size={14} /> Kijk op {service.name}</button>;
   return null;
 }
@@ -126,36 +128,48 @@ function PosterGrid({ titles, services, watch, onToggle, onOpen, onPlay }) {
 
 const youtubeId = (url) => url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/)?.[1];
 
-// Lets the user add any free-to-watch YouTube movie by pasting its link; title/thumbnail come from YouTube oEmbed
-function YoutubeAdder({ onAdd }) {
+// Paste any link: YouTube plays inside the app; streaming-service links and app deep links open in that app
+function LinkAdder({ onAdd }) {
   const [url, setUrl] = useState("");
+  const [name, setName] = useState("");
   const [kind, setKind] = useState("film");
   const [msg, setMsg] = useState("");
   const add = async (e) => {
     e.preventDefault();
-    const id = youtubeId(url);
-    if (!id) return setMsg("Geen geldige YouTube-link.");
-    setMsg("Bezig…");
-    try {
-      const res = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`);
-      const info = await res.json();
-      onAdd({ id: `yt-${id}`, title: info.title, type: kind, year: new Date().getFullYear(), serviceId: "gratis", why: `Gratis op YouTube van ${info.author_name}.`, colors: ["#b71c1c", "#ef9a9a"], free: true, custom: true, youtubeId: id, poster: info.thumbnail_url });
-      setUrl("");
-      setMsg(`${kind === "film" ? "Film" : "Serie"} toegevoegd onder Gratis!`);
-    } catch {
-      setMsg("Kon deze video niet ophalen (offline of niet publiek).");
+    const link = normalizeLink(url);
+    if (!link) return setMsg("Geen geldige link.");
+    const base = { type: kind, year: new Date().getFullYear(), custom: true };
+    const yt = youtubeId(link);
+    if (yt) {
+      setMsg("Bezig…");
+      let info = {};
+      try {
+        info = await (await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${yt}`)}`)).json();
+      } catch { /* offline: fall back to the typed name */ }
+      const title = info.title || name.trim();
+      if (!title) return setMsg("Kon de titel niet ophalen; vul zelf een naam in.");
+      onAdd({ ...base, id: `yt-${yt}`, title, serviceId: "gratis", why: `Gratis op YouTube${info.author_name ? ` van ${info.author_name}` : ""}.`, colors: ["#8c3b2a", "#e0a58f"], free: true, youtubeId: yt, poster: info.thumbnail_url });
+    } else {
+      const { serviceId, host } = detectService(link);
+      const title = name.trim();
+      if (!title) return setMsg("Geef de titel een naam.");
+      onAdd({ ...base, id: `link-${Date.now()}`, title, serviceId: serviceId || "gratis", why: `Opent direct via ${serviceId ? "je streamingdienst" : host || "je app"}.`, colors: ["#2f5d73", "#8fb8c9"], free: !serviceId, deepLink: link, linkName: serviceId ? undefined : host || "link" });
     }
+    setUrl("");
+    setName("");
+    setMsg("Toegevoegd!");
   };
   return (
     <form onSubmit={add} className="mb-3">
-      <div className="input-group">
-        <input className="form-control" placeholder="Plak een gratis YouTube film/serie link" value={url} onChange={(e) => setUrl(e.target.value)} />
+      <div className="input-group mb-2">
+        <input className="form-control" placeholder="Plak een link (YouTube, Netflix, app-link…)" value={url} onChange={(e) => setUrl(e.target.value)} />
         <select className="form-select" style={{ maxWidth: 100 }} value={kind} onChange={(e) => setKind(e.target.value)}>
           <option value="film">Film</option>
           <option value="series">Serie</option>
         </select>
-        <button className="btn btn-danger">+</button>
+        <button className="btn btn-danger" aria-label="Toevoegen"><Icon name="plus" size={18} /></button>
       </div>
+      {url && !youtubeId(url) && <input className="form-control mb-1" placeholder="Naam van de titel" value={name} onChange={(e) => setName(e.target.value)} />}
       {msg && <small className="text-white-50">{msg}</small>}
     </form>
   );
@@ -179,7 +193,7 @@ export function Search({ custom, onAddCustom, ...props }) {
           <button key={s.id} className={`btn btn-sm ${service === s.id ? "btn-light" : "btn-outline-light"}`} onClick={() => setService(s.id)}>{s.name}</button>
         ))}
       </div>
-      <YoutubeAdder onAdd={onAddCustom} />
+      <LinkAdder onAdd={onAddCustom} />
       <PosterGrid {...props} titles={shown} />
     </>
   );
@@ -243,7 +257,8 @@ export function Detail({ title, service, saved, onToggle, onClose, current, onSu
         )}
         <div className="d-flex flex-wrap gap-2">
           {isPlayable(title) && <button className="btn btn-danger flex-fill" onClick={() => onPlay(title)}><Icon name="play" size={14} /> Kijk nu gratis</button>}
-          {!title.free && service?.watchUrl && <button className="btn btn-danger flex-fill" onClick={() => openService(service, title)}><Icon name="play" size={14} /> Kijk op {service.name}</button>}
+          {title.deepLink && <button className="btn btn-danger flex-fill" onClick={() => openLink(title.deepLink)}><Icon name="play" size={14} /> Kijk op {title.linkName || service?.name}</button>}
+          {!title.deepLink && !title.free && service?.watchUrl && <button className="btn btn-danger flex-fill" onClick={() => openService(service, title)}><Icon name="play" size={14} /> Kijk op {service.name}</button>}
           {!title.custom && <button className={`btn flex-fill ${saved ? "btn-dark" : "btn-outline-dark"}`} onClick={onToggle}><Icon name={saved ? "check" : "plus"} size={14} /> {saved ? "Op mijn lijst" : "Mijn lijst"}</button>}
           {!title.free && !current && <button className="btn btn-primary flex-fill" onClick={() => (user ? onSubscribe(cheapest.id) : onLogin())}>{user ? `Abonneer op ${service?.name}` : "Log in om te abonneren"}</button>}
         </div>
@@ -255,14 +270,7 @@ export function Detail({ title, service, saved, onToggle, onClose, current, onSu
 // Plays direct video (HTML5), Internet Archive embeds, or YouTube embeds
 export async function openService(service, title) {
   if (!service?.watchUrl) return;
-  const url = service.watchUrl.replace("{q}", encodeURIComponent(title.title));
-  const cap = window.Capacitor;
-  if (cap?.isNativePlatform?.()) {
-    const { Browser } = await import("@capacitor/browser");
-    await Browser.open({ url });
-  } else {
-    window.open(url, "_blank", "noopener");
-  }
+  await openLink(service.watchUrl.replace("{q}", encodeURIComponent(title.title)));
 }
 export function Player({ title, onClose }) {
   const [failed, setFailed] = useState(false);
