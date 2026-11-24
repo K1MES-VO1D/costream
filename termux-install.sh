@@ -1,20 +1,25 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Difonti installer/launcher for Termux.
-# Usage: bash termux-install.sh
+# Usage: bash termux-install.sh   (works from any folder)
 set -e
 
 REPO="https://github.com/K1MES-VO1D/difonti"
-DIR="$HOME/difonti"
+DIR="${HOME:-$PWD}/difonti"
 
 echo "==> Installing packages"
-pkg update -y
-pkg install -y nodejs git
+if command -v pkg >/dev/null 2>&1; then
+  pkg update -y
+  pkg install -y nodejs git
+else
+  echo "pkg not found - run this inside the Termux app (F-Droid version)." >&2
+  command -v node >/dev/null && command -v git >/dev/null || exit 1
+fi
 
 if [ -d "$DIR/.git" ]; then
   echo "==> Updating $DIR"
   git -C "$DIR" pull --ff-only
 else
-  echo "==> Cloning $REPO"
+  echo "==> Cloning $REPO into $DIR"
   git clone "$REPO" "$DIR"
 fi
 
@@ -28,5 +33,5 @@ cd "$DIR/backend"
 npm install --omit=dev
 
 echo "==> Starting Difonti on http://localhost:4000 (Ctrl+C to stop)"
-termux-wake-lock 2>/dev/null || true
+command -v termux-wake-lock >/dev/null && termux-wake-lock || true
 exec node server.js
