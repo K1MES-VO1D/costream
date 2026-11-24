@@ -1,7 +1,7 @@
 {
   "name": "Difonti",
   "short_name": "Difonti",
-  "description": "Al je streamingdiensten in één app",
+  "description": "Gratis films en series op één plek",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#10242f",

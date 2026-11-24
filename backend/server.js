@@ -6,6 +6,7 @@ import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
+import { services, titles, refreshCatalog, loadCache, archiveVideoUrl } from "./catalog.js";
 
 const PORT = process.env.PORT || 4000;
 // Use JWT_SECRET if set; otherwise generate a random secret once and keep it in a git-ignored file.
@@ -20,76 +21,11 @@ const JWT_SECRET =
         return s;
       })());
 
-// Catalog of streaming services, each with tiered plans (illustrative monthly prices in EUR)
-const plan = (id, name, price, quality, screens) => ({ id, name, price, quality, screens });
-const services = [
-  { id: "gratis", name: "Gratis", free: true, category: "Gratis kijken", color: "#2e9e5b",
-    description: "Open-licentie en publiek-domein films die je direct in de app kunt kijken.", plans: [] },
-  { id: "netflix", name: "Netflix", category: "Series & films", color: "#e50914",
-    description: "Originals, films en series voor elk gezelschap.",
-    plans: [plan("basic", "Basis met reclame", 5.99, "1080p", 2), plan("standard", "Standaard", 13.99, "1080p", 2), plan("premium", "Premium", 19.99, "4K", 4)] },
-  { id: "hulu", name: "Hulu", category: "Series & films", color: "#1ce783",
-    description: "Populaire tv-series, originals en films.",
-    plans: [plan("ads", "Met reclame", 9.99, "1080p", 2), plan("noads", "Zonder reclame", 18.99, "1080p", 2)] },
-  { id: "skyshowtime", name: "SkyShowtime", category: "Series & films", color: "#7b5cff",
-    description: "Series en films van Paramount+, Peacock en Universal.",
-    plans: [plan("standard", "Standaard", 6.99, "1080p", 2), plan("premium", "Premium", 9.99, "4K", 4)] },
-  { id: "hbomax", name: "HBO Max", category: "Series & films", color: "#5a2ee6",
-    description: "HBO-series, Warner Bros. films en Max Originals.",
-    plans: [plan("basic", "Basic met reclame", 5.99, "1080p", 2), plan("standard", "Standard", 9.99, "1080p", 2), plan("premium", "Premium", 13.99, "4K", 4)] },
-  { id: "disney", name: "Disney+", category: "Familie", color: "#113ccf",
-    description: "Disney, Pixar, Marvel, Star Wars en National Geographic.",
-    plans: [plan("standard", "Standaard", 9.99, "1080p", 2), plan("premium", "Premium", 13.99, "4K", 4)] },
-  { id: "prime", name: "Prime Video", category: "Series & films", color: "#00a8e1",
-    description: "Films, series en Amazon Originals.",
-    plans: [plan("prime", "Prime Video", 5.99, "4K", 3)] },
-  { id: "videoland", name: "Videoland", category: "Nederlands", color: "#e5004f",
-    description: "Nederlandse series en RTL-programma's.",
-    plans: [plan("basic", "Basis", 5.99, "1080p", 1), plan("standard", "Standaard", 9.99, "1080p", 2), plan("premium", "Premium", 12.99, "4K", 4)] },
-];
-
-// Where each service's own player/search lives; {q} is replaced with the title
-const watchUrls = {
-  netflix: "https://www.netflix.com/search?q={q}",
-  hulu: "https://www.hulu.com/search?q={q}",
-  skyshowtime: "https://www.skyshowtime.com/",
-  hbomax: "https://www.hbomax.com/",
-  disney: "https://www.disneyplus.com/search/{q}",
-  prime: "https://www.primevideo.com/search/ref=atv_nb_sug?phrase={q}",
-  videoland: "https://www.videoland.com/",
-};
-services.forEach((s) => { s.watchUrl = watchUrls[s.id]; });
-
-// Bundle discount by number of active services
-const discountFor = (n) => (n >= 4 ? 0.2 : n === 3 ? 0.15 : n === 2 ? 0.1 : 0);
-
 const users = new Map(); // email -> { id, name, email, passwordHash }
-const subscriptions = new Map(); // userId -> Map(serviceId -> { planId, startedAt })
 const watchlists = new Map(); // userId -> Set(titleId)
-
-// Fictional titles; posters are rendered as gradients on the client
-const titles = [
-  ["t1", "Midnight Harbor", "series", 2025, "netflix", "Stemmige thriller met een onverwachte plot-twist elke aflevering.", ["#0f2027", "#2c5364"]],
-  ["t2", "The Last Orchard", "film", 2024, "hulu", "Warm familiedrama dat je zeker even doet janken.", ["#614385", "#516395"]],
-  ["t3", "Zero Gravity", "film", 2025, "skyshowtime", "Spectaculaire sciencefiction, het best op groot scherm.", ["#000428", "#004e92"]],
-  ["t4", "Kleine Helden", "series", 2025, "disney", "Leuk en leerzaam voor de kleintjes, zonder irritante liedjes.", ["#f7971e", "#ffd200"]],
-  ["t5", "Derby Night", "film", 2024, "prime", "Het mooiste voetbaldrama van het jaar.", ["#1d976c", "#93f9b9"]],
-  ["t6", "Deep Blue Planet", "series", 2025, "hbomax", "Adembenemende beelden van de diepzee.", ["#136a8a", "#267871"]],
-  ["t7", "Cold Case Amsterdam", "series", 2025, "videoland", "Binge-waardig: acht afleveringen die je niet loslaat.", ["#cb2d3e", "#ef473a"]],
-  ["t8", "Rhythm of the City", "series", 2024, "netflix", "Muziekserie over de straten van Rotterdam.", ["#4776e6", "#8e54e9"]],
-  ["t9", "The Quiet Summit", "film", 2023, "hbomax", "Indrukwekkende klimdocu over de Himalaya.", ["#757f9a", "#d7dde8"]],
-  ["t10", "Stadium Roar", "series", 2025, "skyshowtime", "Achter de schermen bij een Europees topteam.", ["#f12711", "#f5af19"]],
-].map(([id, title, type, year, serviceId, why, colors]) => ({ id, title, type, year, serviceId, why, colors }));
-
-// Free, legally playable titles (open-licensed Blender films and a public-domain classic)
-const freeTitles = [
-  ["f1", "Big Buck Bunny", "film", 2008, "Een enorm konijn neemt wraak op drie plaaggeesten. Open film van Blender.", ["#2e7d32", "#a5d6a7"], { videoUrl: "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4", youtubeId: "aqz-KE-bpKQ", runtime: "10 min" }],
-  ["f2", "Sintel", "film", 2010, "Een jonge vrouw zoekt haar draakje. Prachtig geanimeerd fantasy-avontuur.", ["#6a1b9a", "#ce93d8"], { videoUrl: "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4", youtubeId: "eRsGyueVLvQ", runtime: "15 min" }],
-  ["f3", "Tears of Steel", "film", 2012, "Sciencefiction in Amsterdam: een groep strijdt tegen robots. Gemaakt door Blender.", ["#01579b", "#4fc3f7"], { videoUrl: "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4", youtubeId: "R6MlUcmOul8", runtime: "12 min" }],
-  ["f4", "Elephants Dream", "film", 2006, "Eerste open film ooit: twee vreemde bewoners in een surrealistische machinewereld.", ["#bf360c", "#ffab91"], { videoUrl: "https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4", youtubeId: "TLkA0RELQ1g", runtime: "11 min" }],
-  ["f5", "Night of the Living Dead", "film", 1968, "Horrorklassieker (publiek domein) van George A. Romero, via het Internet Archive.", ["#212121", "#757575"], { embedUrl: "https://archive.org/embed/night_of_the_living_dead", runtime: "96 min" }],
-].map(([id, title, type, year, why, colors, extra]) => ({ id, title, type, year, serviceId: "gratis", why, colors, free: true, ...extra }));
-titles.push(...freeTitles);
+loadCache();
+refreshCatalog().catch((e) => console.log("catalog refresh failed:", e.message));
+setInterval(() => refreshCatalog().catch(() => {}), 6 * 60 * 60 * 1000).unref();
 let nextUserId = 1;
 
 const app = express();
@@ -112,23 +48,6 @@ const auth = (req, res, next) => {
   } catch {
     res.status(401).json({ error: "Unauthorized" });
   }
-};
-
-const findPlan = (serviceId, planId) => {
-  const service = services.find((s) => s.id === serviceId);
-  return { service, plan: service?.plans.find((p) => p.id === planId) };
-};
-
-const summary = (userId) => {
-  const subs = subscriptions.get(userId) ?? new Map();
-  const items = [...subs].map(([serviceId, { planId, startedAt }]) => {
-    const { service, plan } = findPlan(serviceId, planId);
-    return { serviceId, serviceName: service.name, color: service.color, plan, startedAt };
-  });
-  const subtotal = items.reduce((sum, i) => sum + i.plan.price, 0);
-  const discountRate = discountFor(items.length);
-  const discount = +(subtotal * discountRate).toFixed(2);
-  return { items, subtotal: +subtotal.toFixed(2), discountRate, discount, total: +(subtotal - discount).toFixed(2) };
 };
 
 const tokenFor = (u) => jwt.sign({ id: u.id, email: u.email, name: u.name }, JWT_SECRET, { expiresIn: "7d" });
@@ -156,7 +75,7 @@ app.get("/api/services", (_req, res) => res.json(services));
 
 app.get("/api/titles", (req, res) => {
   const q = (req.query.q || "").toString().toLowerCase();
-  res.json(titles.filter((t) => !q || t.title.toLowerCase().includes(q)));
+  res.json(titles.filter((t) => !q || t.title.toLowerCase().includes(q)).slice(0, 300));
 });
 
 app.get("/api/watchlist", auth, (req, res) => res.json([...(watchlists.get(req.user.id) ?? [])]));
@@ -175,23 +94,14 @@ app.delete("/api/watchlist/:titleId", auth, (req, res) => {
   res.json([...list]);
 });
 
-app.get("/api/subscriptions", auth, (req, res) => res.json(summary(req.user.id)));
-
-// Subscribe to a service, or change plan if already subscribed
-app.post("/api/subscriptions", auth, (req, res) => {
-  const { serviceId, planId } = req.body ?? {};
-  const { plan } = findPlan(serviceId, planId);
-  if (!plan) return res.status(400).json({ error: "Unknown service or plan" });
-  const subs = subscriptions.get(req.user.id) ?? new Map();
-  subs.set(serviceId, { planId, startedAt: subs.get(serviceId)?.startedAt ?? new Date().toISOString() });
-  subscriptions.set(req.user.id, subs);
-  res.status(201).json(summary(req.user.id));
-});
-
-app.delete("/api/subscriptions/:serviceId", auth, (req, res) => {
-  const subs = subscriptions.get(req.user.id);
-  if (!subs?.delete(req.params.serviceId)) return res.status(404).json({ error: "Not subscribed" });
-  res.json(summary(req.user.id));
+// Resolves a browser-playable mp4 for an Internet Archive item (used by the HTML5 <video> player)
+app.get("/api/archive/:id/video", async (req, res) => {
+  try {
+    const url = await archiveVideoUrl(req.params.id);
+    url ? res.json({ url }) : res.status(404).json({ error: "No playable file" });
+  } catch {
+    res.status(502).json({ error: "Archive unavailable" });
+  }
 });
 
 // Serve the built frontend (frontend/dist) so one process runs the whole app, e.g. in Termux

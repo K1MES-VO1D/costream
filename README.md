@@ -1,8 +1,11 @@
 # Difonti
 
-Streaming discovery + multi-service subscription manager (Netflix, Hulu, SkyShowtime, HBO Max, Disney+, Prime Video, Videoland).
-Mobile-first PWA: swipeable tips, search, watchlist, subscriptions with bundle discounts (2 services 10%, 3 → 15%, 4+ → 20%).
-Service names are used for identification only; prices and titles are illustrative/fictional.
+Free streaming hub: public-domain and open films and series from Internet Archive, Dailymotion, Vimeo and YouTube in one mobile-first app
+(swipeable tips, search, watchlist, paste-a-link adder). Paid services are not included.
+
+The backend refreshes the catalog on start and every 6 hours from public APIs (Internet Archive search, Dailymotion API).
+Optional keys for more sources: `VIMEO_TOKEN` (Vimeo API, Creative Commons filter) and `YOUTUBE_API_KEY` (YouTube Data API, CC-licensed, embeddable).
+Internet Archive titles play in an HTML5 `<video>` tag when an mp4 exists, otherwise via the archive embed.
 
 - **Backend**: Node + Express, JWT auth, in-memory data (`backend/`, port 4000)
 - **Frontend**: React + Vite + Bootstrap (`frontend/`)
@@ -28,6 +31,6 @@ node server.js
 Optional from F-Droid: **Termux:Boot** (autostart), **Termux:Widget** (home-screen start button). Run `termux-wake-lock` to keep the server alive.
 
 ## API
-`POST /api/auth/register|login`, `GET /api/services`, `GET /api/titles?q=`, `GET|POST /api/subscriptions`, `DELETE /api/subscriptions/:serviceId`, `GET /api/watchlist`, `POST|DELETE /api/watchlist/:titleId`.
+`POST /api/auth/register|login`, `GET /api/services`, `GET /api/titles?q=`, `GET /api/archive/:id/video`, `GET /api/watchlist`, `POST|DELETE /api/watchlist/:titleId`.
 
 Data is in memory (resets on restart); set `JWT_SECRET` in production.

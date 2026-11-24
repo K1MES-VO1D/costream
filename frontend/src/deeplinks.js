@@ -1,14 +1,3 @@
-// Known streaming hosts, so a pasted link is filed under the right service
-const hosts = {
-  "netflix.com": "netflix",
-  "hulu.com": "hulu",
-  "skyshowtime.com": "skyshowtime",
-  "hbomax.com": "hbomax",
-  "max.com": "hbomax",
-  "disneyplus.com": "disney",
-  "primevideo.com": "prime",
-  "videoland.com": "videoland",
-};
 const blocked = /^(javascript|data|file|vbscript|blob):/i;
 
 // Accepts https links and app deep links (e.g. nflx://...); returns null if unusable
@@ -26,11 +15,9 @@ export function normalizeLink(input) {
 
 export function detectService(url) {
   try {
-    const host = new URL(url).hostname.replace(/^www\./, "");
-    const key = Object.keys(hosts).find((h) => host === h || host.endsWith(`.${h}`));
-    return { serviceId: key ? hosts[key] : null, host };
+    return { host: new URL(url).hostname.replace(/^www\./, "") };
   } catch {
-    return { serviceId: null, host: "" };
+    return { host: "" };
   }
 }
 

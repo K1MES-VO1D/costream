@@ -24,7 +24,5 @@ export const api = {
   removeWatch: (id) => request(`/watchlist/${id}`, { method: "DELETE" }),
   register: (b) => request("/auth/register", { method: "POST", body: b }),
   login: (b) => request("/auth/login", { method: "POST", body: b }),
-  subscriptions: () => request("/subscriptions"),
-  subscribe: (serviceId, planId) => request("/subscriptions", { method: "POST", body: { serviceId, planId } }),
-  cancel: (serviceId) => request(`/subscriptions/${serviceId}`, { method: "DELETE" }),
+  archiveVideo: (id) => request(`/archive/${encodeURIComponent(id)}/video`),
 };

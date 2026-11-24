@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
 
-const fmt = new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" });
-export const money = (n) => fmt.format(n);
-export const emptySummary = { items: [], subtotal: 0, discountRate: 0, discount: 0, total: 0 };
 
 export function AuthForm({ onAuth }) {
   const [mode, setMode] = useState("login");
@@ -38,39 +35,3 @@ export function AuthForm({ onAuth }) {
     </form>
   );
 }
-
-export function ServiceCard({ service, current, user, onLogin, onSubscribe, onCancel }) {
-  const [planId, setPlanId] = useState(current?.plan.id ?? service.plans[0].id);
-  const changed = current && current.plan.id !== planId;
-
-  return (
-    <div className="card service-card h-100" style={{ "--accent": service.color }}>
-      <div className="service-banner" style={{ background: service.color }} />
-      <div className="card-body d-flex flex-column">
-        <div className="d-flex justify-content-between align-items-start">
-          <h5 className="card-title">{service.name}</h5>
-          <span className="badge text-bg-secondary">{service.category}</span>
-        </div>
-        <p className="text-secondary small">{service.description}</p>
-        <div className="d-grid gap-2 mb-3">
-          {service.plans.map((p) => (
-            <div key={p.id} className={`plan-option d-flex justify-content-between ${planId === p.id ? "active" : ""}`} onClick={() => setPlanId(p.id)}>
-              <span>
-                <strong>{p.name}</strong>
-                <small className="d-block text-secondary">{p.quality} · {p.screens} screen{p.screens > 1 && "s"}</small>
-              </span>
-              <span className="fw-semibold">{money(p.price)}/mnd</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-auto d-flex gap-2">
-          <button className="btn btn-primary flex-grow-1" disabled={user && current && !changed} onClick={() => (user ? onSubscribe(service.id, planId) : onLogin())}>
-            {!user ? "Log in om te abonneren" : !current ? "Abonneren" : changed ? "Pakket wijzigen" : "Geabonneerd"}
-          </button>
-          {current && <button className="btn btn-outline-danger" onClick={() => onCancel(service.id)}>Opzeggen</button>}
-        </div>
-      </div>
-    </div>
-  );
-}
-

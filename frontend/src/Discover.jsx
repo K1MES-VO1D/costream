@@ -6,12 +6,11 @@ import { normalizeLink, detectService, openLink, openInApp } from "./deeplinks.j
 const bg = (t) => ({ "--c1": t.colors[0], "--c2": t.colors[1] });
 const label = (t) => `${t.type === "film" ? "Film" : "Serie"} · ${t.year}`;
 const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
-export const isPlayable = (t) => Boolean(t.videoUrl || t.embedUrl || t.youtubeId);
+export const isPlayable = (t) => Boolean(t.videoUrl || t.embedUrl || t.youtubeId || t.archiveId);
 
-function PlayButton({ title, service, onPlay }) {
+function PlayButton({ title, onPlay }) {
   if (isPlayable(title)) return <button className="pill-btn play" onClick={stop(() => onPlay(title))}><Icon name="play" size={14} /> Kijk nu gratis</button>;
-  if (title.deepLink) return <button className="pill-btn play" onClick={stop(() => openInApp(title.deepLink))}><Icon name="play" size={14} /> Kijk op {title.linkName || service?.name}</button>;
-  if (service?.watchUrl) return <button className="pill-btn play" onClick={stop(() => openService(service, title))}><Icon name="play" size={14} /> Kijk op {service.name}</button>;
+  if (title.deepLink) return <button className="pill-btn play" onClick={stop(() => openInApp(title.deepLink))}><Icon name="play" size={14} /> Open {title.linkName || "link"}</button>;
   return null;
 }
 
@@ -25,16 +24,17 @@ function WatchButton({ saved, onToggle }) {
 
 // Intro/promo cards shown before the personal tips
 const promoCards = [
-  { id: "welcome", tag: "Welkom", title: "Welkom bij Difonti: al je streamingdiensten op één plek.", art: "tv", cta: "Doe de tour", action: "tour", cls: "welcome" },
-  { id: "bundle", tag: "Bundelkorting", title: "Combineer 3 diensten en bespaar 15% op je maandbedrag.", art: "wallet", cta: "Bekijk bundels", action: "services", cls: "promo-green" },
-  { id: "tips", tag: "Zo werkt het", title: "Swipe door tips, bewaar wat je wilt kijken en zie direct waar het staat.", art: "swipe", cta: "Naar mijn lijsten", action: "lists", cls: "promo-purple" },
+  { id: "welcome", tag: "Welkom", title: "Welkom bij Difonti: gratis films en series uit het publiek domein, op één plek.", art: "tv", cta: "Doe de tour", action: "tour", cls: "welcome" },
+  { id: "sources", tag: "Bronnen", title: "Internet Archive, Dailymotion, Vimeo en YouTube, samen in één app.", art: "wallet", cta: "Zoek een titel", action: "search", cls: "promo-green" },
+  { id: "tips", tag: "Zo werkt het", title: "Swipe door tips, bewaar wat je wilt kijken en speel het direct af.", art: "swipe", cta: "Naar mijn lijsten", action: "lists", cls: "promo-purple" },
 ];
 
 // Swipeable "kijktips": the next card peeks in; works with touch and mouse drag
-export function Tips({ titles, services, watch, onToggle, onOpen, onPlay, onAction }) {
+export function Tips({ titles: allTitles, services, watch, onToggle, onOpen, onPlay, onAction }) {
   const ref = useRef(null);
   const drag = useRef(null);
   const [index, setIndex] = useState(0);
+  const titles = allTitles.slice(0, 40);
   const count = promoCards.length + titles.length;
 
   const onScroll = () => {
@@ -82,14 +82,14 @@ export function Tips({ titles, services, watch, onToggle, onOpen, onPlay, onActi
           </article>
         ))}
         {titles.map((t) => (
-          <article key={t.id} className="tip-card clickable" style={bg(t)} onClick={() => open(t)}>
+          <article key={t.id} className="tip-card clickable" style={t.poster ? { ...bg(t), backgroundImage: `linear-gradient(transparent 30%, #061014), url(${t.poster})`, backgroundSize: "cover", backgroundPosition: "center" } : bg(t)} onClick={() => open(t)}>
             <div className="tip-content">
               <span className="tag">{services.find((s) => s.id === t.serviceId)?.name}</span>
               <small className="meta">{label(t)}</small>
               <h2>{t.title}</h2>
               <p>{t.why}</p>
               <div className="d-flex flex-wrap gap-2">
-                <PlayButton title={t} service={services.find((s) => s.id === t.serviceId)} onPlay={onPlay} />
+                <PlayButton title={t} onPlay={onPlay} />
                 <WatchButton saved={watch.includes(t.id)} onToggle={() => onToggle(t.id)} />
               </div>
             </div>
@@ -116,7 +116,7 @@ function PosterGrid({ titles, services, watch, onToggle, onOpen, onPlay }) {
             <div className="mt-auto w-100">
               <strong className="d-block">{t.title}</strong>
               <small className="opacity-75">{label(t)}</small>
-              <PlayButton title={t} service={services.find((s) => s.id === t.serviceId)} onPlay={onPlay} />
+              <PlayButton title={t} onPlay={onPlay} />
               {!t.custom && <WatchButton saved={watch.includes(t.id)} onToggle={() => onToggle(t.id)} />}
             </div>
           </div>
@@ -127,53 +127,66 @@ function PosterGrid({ titles, services, watch, onToggle, onOpen, onPlay }) {
 }
 
 const youtubeId = (url) => url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/)?.[1];
+const vimeoId = (url) => url.match(/vimeo\.com\/(?:video\/|.*\/)?(\d{6,})/)?.[1];
+const dailymotionId = (url) => url.match(/(?:dailymotion\.com\/(?:video|embed\/video)\/|dai\.ly\/)([a-z0-9]+)/i)?.[1];
+const fileLink = /\.(mp4|webm|ogv|m4v|mov)(\?|#|$)/i;
 
-// Paste any link: YouTube plays inside the app; streaming-service links and app deep links open in that app
+// Paste a link: YouTube, Vimeo, Dailymotion and video files play in the app; other links open in the in-app web view
 function LinkAdder({ onAdd }) {
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
   const [kind, setKind] = useState("film");
   const [msg, setMsg] = useState("");
+  const oembed = async (endpoint) => {
+    try { return await (await fetch(endpoint)).json(); } catch { return {}; } // offline: fall back to the typed name
+  };
   const add = async (e) => {
     e.preventDefault();
     const link = normalizeLink(url);
     if (!link) return setMsg("Geen geldige link.");
-    const base = { type: kind, year: new Date().getFullYear(), custom: true };
+    const base = { type: kind, year: new Date().getFullYear(), custom: true, free: true, colors: ["#2f5d73", "#8fb8c9"] };
     const yt = youtubeId(link);
+    const vm = vimeoId(link);
+    const dm = dailymotionId(link);
+    setMsg("Bezig…");
+    let title = name.trim();
+    let item;
     if (yt) {
-      setMsg("Bezig…");
-      let info = {};
-      try {
-        info = await (await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${yt}`)}`)).json();
-      } catch { /* offline: fall back to the typed name */ }
-      const title = info.title || name.trim();
-      if (!title) return setMsg("Kon de titel niet ophalen; vul zelf een naam in.");
-      onAdd({ ...base, id: `yt-${yt}`, title, serviceId: "gratis", why: `Gratis op YouTube${info.author_name ? ` van ${info.author_name}` : ""}.`, colors: ["#8c3b2a", "#e0a58f"], free: true, youtubeId: yt, poster: info.thumbnail_url });
-    } else if (/\.(mp4|webm|ogv|m4v|mov)(\?|#|$)/i.test(link)) {
-      const title = name.trim();
-      if (!title) return setMsg("Geef de titel een naam.");
-      onAdd({ ...base, id: `video-${Date.now()}`, title, serviceId: "gratis", why: "Direct afspeelbaar in de app.", colors: ["#2f5d73", "#8fb8c9"], free: true, videoUrl: link });
+      const info = await oembed(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${yt}`)}`);
+      title = info.title || title;
+      item = { ...base, id: `yt-${yt}`, serviceId: "youtube", why: `Gratis op YouTube${info.author_name ? ` van ${info.author_name}` : ""}.`, youtubeId: yt, poster: info.thumbnail_url };
+    } else if (vm) {
+      const info = await oembed(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(`https://vimeo.com/${vm}`)}`);
+      title = info.title || title;
+      item = { ...base, id: `vimeo-${vm}`, serviceId: "vimeo", why: `Op Vimeo${info.author_name ? ` van ${info.author_name}` : ""}.`, embedUrl: `https://player.vimeo.com/video/${vm}`, poster: info.thumbnail_url };
+    } else if (dm) {
+      const info = await oembed(`https://www.dailymotion.com/services/oembed?format=json&url=${encodeURIComponent(`https://www.dailymotion.com/video/${dm}`)}`);
+      title = info.title || title;
+      item = { ...base, id: `dm-${dm}`, serviceId: "dailymotion", why: `Op Dailymotion${info.author_name ? ` van ${info.author_name}` : ""}.`, embedUrl: `https://www.dailymotion.com/embed/video/${dm}`, poster: info.thumbnail_url };
+    } else if (fileLink.test(link)) {
+      item = { ...base, id: `video-${Date.now()}`, serviceId: "archive", why: "Direct afspeelbaar in de app.", videoUrl: link };
     } else {
-      const { serviceId, host } = detectService(link);
-      const title = name.trim();
-      if (!title) return setMsg("Geef de titel een naam.");
-      onAdd({ ...base, id: `link-${Date.now()}`, title, serviceId: serviceId || "gratis", why: `Opent direct via ${serviceId ? "je streamingdienst" : host || "je app"}.`, colors: ["#2f5d73", "#8fb8c9"], free: !serviceId, deepLink: link, linkName: serviceId ? undefined : host || "link" });
+      const { host } = detectService(link);
+      item = { ...base, id: `link-${Date.now()}`, serviceId: "archive", why: `Opent ${host || "de link"} in de app.`, deepLink: link, linkName: host || "link" };
     }
+    if (!title) return setMsg("Kon de titel niet ophalen; vul zelf een naam in.");
+    onAdd({ ...item, title });
     setUrl("");
     setName("");
     setMsg("Toegevoegd!");
   };
+  const needsName = url && !youtubeId(url) && !vimeoId(url) && !dailymotionId(url);
   return (
     <form onSubmit={add} className="mb-3">
       <div className="input-group mb-2">
-        <input className="form-control" placeholder="Plak een link (video-bestand, YouTube, Netflix…)" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <input className="form-control" placeholder="Plak een link (YouTube, Vimeo, Dailymotion, mp4…)" value={url} onChange={(e) => setUrl(e.target.value)} />
         <select className="form-select" style={{ maxWidth: 100 }} value={kind} onChange={(e) => setKind(e.target.value)}>
           <option value="film">Film</option>
           <option value="series">Serie</option>
         </select>
         <button className="btn btn-danger" aria-label="Toevoegen"><Icon name="plus" size={18} /></button>
       </div>
-      {url && !youtubeId(url) && <input className="form-control mb-1" placeholder="Naam van de titel" value={name} onChange={(e) => setName(e.target.value)} />}
+      {needsName && <input className="form-control mb-1" placeholder="Naam van de titel" value={name} onChange={(e) => setName(e.target.value)} />}
       {msg && <small className="text-white-50">{msg}</small>}
     </form>
   );
@@ -193,7 +206,7 @@ export function Search({ custom, onAddCustom, ...props }) {
     <>
       <input className="form-control form-control-lg search-input mb-3" type="search" placeholder="Zoek een film of serie…" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="chip-row mb-3">
-        {[{ id: "", name: "Alle diensten" }, ...props.services].map((s) => (
+        {[{ id: "", name: "Alle bronnen" }, ...props.services].map((s) => (
           <button key={s.id} className={`btn btn-sm ${service === s.id ? "btn-light" : "btn-outline-light"}`} onClick={() => setService(s.id)}>{s.name}</button>
         ))}
       </div>
@@ -219,10 +232,10 @@ export function Lists({ titles, watch, user, onLogin, ...rest }) {
 }
 
 const tourSteps = [
-  ["filters", "Filter op dienst", "Tik op FILTERS om alleen titels van jouw streamingdiensten, of alleen films of series te zien."],
-  ["swipe", "Swipe door kijktips", "Swipe links en rechts, of gebruik de pijltjes. Tik op een kaart voor details en waar je kijkt."],
+  ["filters", "Filter op dienst", "Tik op FILTERS om alleen een bepaalde bron, of alleen films of series te zien."],
+  ["swipe", "Swipe door kijktips", "Swipe links en rechts, of gebruik de pijltjes. Tik op een kaart voor details en kijk meteen gratis."],
   ["bookmark", "Bewaar op je lijst", "Voeg titels toe aan Mijn lijsten, zodat je nooit meer hoeft te zoeken waar het staat."],
-  ["wallet", "Beheer je abonnementen", "Via je account zie je al je diensten en bundelkorting in één overzicht."],
+  ["plus", "Voeg zelf toe", "Plak onder Zoek een YouTube-, Vimeo-, Dailymotion- of videolink om je eigen titels toe te voegen."],
 ];
 
 export function Tour({ onClose }) {
@@ -244,8 +257,7 @@ export function Tour({ onClose }) {
   );
 }
 
-export function Detail({ title, service, saved, onToggle, onClose, current, onSubscribe, onPlay, user, onLogin }) {
-  const cheapest = service?.plans[0];
+export function Detail({ title, service, saved, onToggle, onClose, onPlay }) {
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
@@ -253,49 +265,47 @@ export function Detail({ title, service, saved, onToggle, onClose, current, onSu
         <small className="d-block text-secondary mt-2">{label(title)}{title.runtime && ` · ${title.runtime}`}</small>
         <h4>{title.title}</h4>
         <p>{title.why}</p>
-        {!title.free && (
-          <p className="small text-secondary">
-            Kijken via {service?.name}{cheapest && ` vanaf ${new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(cheapest.price)} per maand`}.
-            {current && " Je bent al geabonneerd."}
-          </p>
-        )}
         <div className="d-flex flex-wrap gap-2">
           {isPlayable(title) && <button className="btn btn-danger flex-fill" onClick={() => onPlay(title)}><Icon name="play" size={14} /> Kijk nu gratis</button>}
-          {title.deepLink && <button className="btn btn-danger flex-fill" onClick={() => openInApp(title.deepLink)}><Icon name="play" size={14} /> Kijk op {title.linkName || service?.name}</button>}
-          {!title.deepLink && !title.free && service?.watchUrl && <button className="btn btn-danger flex-fill" onClick={() => openService(service, title)}><Icon name="play" size={14} /> Kijk op {service.name}</button>}
-          {(title.deepLink || (!title.free && service?.watchUrl)) && <button className="btn btn-outline-dark flex-fill" onClick={() => openLink(title.deepLink || service.watchUrl.replace("{q}", encodeURIComponent(title.title)))}>Open in {title.linkName || service?.name}-app</button>}
+          {title.deepLink && <button className="btn btn-danger flex-fill" onClick={() => openInApp(title.deepLink)}><Icon name="play" size={14} /> Open {title.linkName || "link"}</button>}
           {!title.custom && <button className={`btn flex-fill ${saved ? "btn-dark" : "btn-outline-dark"}`} onClick={onToggle}><Icon name={saved ? "check" : "plus"} size={14} /> {saved ? "Op mijn lijst" : "Mijn lijst"}</button>}
-          {!title.free && !current && <button className="btn btn-primary flex-fill" onClick={() => (user ? onSubscribe(cheapest.id) : onLogin())}>{user ? `Abonneer op ${service?.name}` : "Log in om te abonneren"}</button>}
         </div>
       </div>
     </div>
   );
 }
 
-// Plays direct video (HTML5), Internet Archive embeds, or YouTube embeds
-export async function openService(service, title) {
-  if (!service?.watchUrl) return;
-  await openInApp(service.watchUrl.replace("{q}", encodeURIComponent(title.title)));
-}
+// Plays free titles: HTML5 <video> for direct files (Internet Archive files are resolved by the backend),
+// falling back to the source's own embed when no file can be played
 export function Player({ title, onClose }) {
-  const [useEmbed, setUseEmbed] = useState(!title.videoUrl && !title.embedUrl);
-  const [failed, setFailed] = useState(false);
-  const embed = title.youtubeId ? `https://www.youtube.com/embed/${title.youtubeId}?autoplay=1&rel=0&playsinline=1` : title.embedUrl;
-  // HTML5 <video> for direct files; the embed is only a fallback when the file can't be loaded
-  const showVideo = title.videoUrl && !useEmbed;
-  const onVideoError = () => (embed ? setUseEmbed(true) : setFailed(true));
+  const [src, setSrc] = useState(title.videoUrl || null);
+  const [resolving, setResolving] = useState(!title.videoUrl && Boolean(title.archiveId));
+  const [useEmbed, setUseEmbed] = useState(false);
+  const embed = title.youtubeId
+    ? `https://www.youtube.com/embed/${title.youtubeId}?autoplay=1&rel=0&playsinline=1`
+    : title.archiveId ? `https://archive.org/embed/${title.archiveId}` : title.embedUrl;
+
+  useEffect(() => {
+    if (!resolving) return;
+    api.archiveVideo(title.archiveId).then((r) => setSrc(r.url)).catch(() => {}).finally(() => setResolving(false));
+  }, [resolving, title.archiveId]);
+
+  const showVideo = src && !useEmbed;
   return (
     <div className="player">
       <div className="player-bar">
         <button className="pill-btn" onClick={onClose}><Icon name="back" size={16} /> Terug</button>
         <strong className="text-truncate">{title.title}</strong>
       </div>
-      {showVideo ? (
-        <video src={title.videoUrl} controls autoPlay playsInline preload="metadata" onError={onVideoError} />
+      {resolving ? (
+        <p className="text-center text-white-50 p-4">Video laden…</p>
+      ) : showVideo ? (
+        <video src={src} poster={title.poster} controls autoPlay playsInline preload="metadata" onError={() => (embed ? setUseEmbed(true) : setSrc(null))} />
       ) : embed ? (
         <iframe title={title.title} src={embed} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
-      ) : null}
-      {failed && <p className="text-center text-white p-4">Deze video kon niet geladen worden. Controleer je internetverbinding.</p>}
+      ) : (
+        <p className="text-center text-white p-4">Deze video kon niet geladen worden. Controleer je internetverbinding.</p>
+      )}
     </div>
   );
 }

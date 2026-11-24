@@ -1,32 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
-import { AuthForm, ServiceCard, money, emptySummary } from "./Parts.jsx";
+import { AuthForm } from "./Parts.jsx";
 import { Tips, Search, Lists, Tour, Detail, Player, WebFrame, Toast } from "./Discover.jsx";
 import { Icon, Logo } from "./Icons.jsx";
-
-function Summary({ summary, user }) {
-  return (
-    <div className="card mt-3">
-      <div className="card-header fw-semibold">Jouw abonnementen</div>
-      <ul className="list-group list-group-flush">
-        {summary.items.length === 0 && <li className="list-group-item text-secondary">{user ? "Nog geen actieve abonnementen." : "Log in om abonnementen te beheren."}</li>}
-        {summary.items.map((i) => (
-          <li key={i.serviceId} className="list-group-item d-flex justify-content-between">
-            <span><span className="badge me-2" style={{ background: i.color }}>&nbsp;</span>{i.serviceName} <small className="text-secondary">{i.plan.name}</small></span>
-            <span>{money(i.plan.price)}</span>
-          </li>
-        ))}
-      </ul>
-      <div className="card-body">
-        <div className="d-flex justify-content-between"><span>Subtotaal</span><span>{money(summary.subtotal)}</span></div>
-        <div className="d-flex justify-content-between text-success"><span>Bundelkorting ({Math.round(summary.discountRate * 100)}%)</span><span>-{money(summary.discount)}</span></div>
-        <hr />
-        <div className="d-flex justify-content-between fw-bold fs-5"><span>Totaal per maand</span><span>{money(summary.total)}</span></div>
-        <small className="text-secondary">2 diensten: 10% · 3: 15% · 4+: 20% korting</small>
-      </div>
-    </div>
-  );
-}
 
 function FiltersSheet({ services, active, setActive, type, setType, onClose }) {
   const toggle = (id) => setActive(active.includes(id) ? active.filter((x) => x !== id) : [...active, id]);
@@ -34,7 +10,7 @@ function FiltersSheet({ services, active, setActive, type, setType, onClose }) {
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <h5 className="mb-3">Filters</h5>
-        <p className="small text-secondary mb-2">Streamingdienst</p>
+        <p className="small text-secondary mb-2">Bron</p>
         <div className="d-flex flex-wrap gap-2 mb-3">
           {services.map((s) => (
             <button key={s.id} className={`btn btn-sm ${active.includes(s.id) ? "btn-dark" : "btn-outline-dark"}`} onClick={() => toggle(s.id)}>{s.name}</button>
@@ -60,7 +36,6 @@ export default function App() {
   const [services, setServices] = useState([]);
   const [titles, setTitles] = useState([]);
   const [watch, setWatch] = useState([]);
-  const [summary, setSummary] = useState(emptySummary);
   const [view, setView] = useState("tips");
   const [error, setError] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -92,8 +67,7 @@ export default function App() {
     api.titles().then(setTitles).catch(() => {});
   }, []);
   useEffect(() => {
-    if (!user) { setWatch([]); return setSummary(emptySummary); }
-    api.subscriptions().then(setSummary).catch(() => logout());
+    if (!user) return setWatch([]);
     api.watchlist().then(setWatch).catch(() => {});
   }, [user]);
 
@@ -107,10 +81,6 @@ export default function App() {
     localStorage.clear();
     setUser(null);
   };
-  const act = (fn, message) => async (...args) => {
-    setError("");
-    try { setSummary(await fn(...args)); if (message) notify(message); } catch (e) { setError(e.message); }
-  };
   const toggleWatch = async (id) => {
     if (!user) { notify("Log in om titels te bewaren"); return setView("account"); }
     const adding = !watch.includes(id);
@@ -118,7 +88,6 @@ export default function App() {
   };
   const onAction = (a) => (a === "tour" ? setTour(true) : setView(a));
 
-  const currentFor = (id) => summary.items.find((i) => i.serviceId === id);
   const filtered = [...titles, ...custom].filter((t) => (!activeServices.length || activeServices.includes(t.serviceId)) && (!type || t.type === type));
   const common = { services, watch, onToggle: toggleWatch, onOpen: setDetail, onPlay: (t) => { setDetail(null); setPlaying(t); } };
   const filterCount = activeServices.length + (type ? 1 : 0);
@@ -130,22 +99,9 @@ export default function App() {
       <div className="card card-body text-center">
         <h4>Hoi, {user.name}</h4>
         <p className="text-secondary">{user.email}</p>
-        <button className="btn btn-primary mb-2" onClick={() => setView("services")}>Mijn abonnementen</button>
         <button className="btn btn-outline-danger" onClick={logout}>Uitloggen</button>
       </div>
     ) : <AuthForm onAuth={onAuth} />],
-    services: ["Mijn abonnementen", (
-      <>
-        <div className="row g-3">
-          {services.filter((s) => !s.free).map((s) => (
-            <div key={s.id} className="col-12">
-              <ServiceCard service={s} current={currentFor(s.id)} user={user} onLogin={() => setView("account")} onSubscribe={act(api.subscribe, "Abonnement bijgewerkt")} onCancel={act(api.cancel, "Abonnement opgezegd")} />
-            </div>
-          ))}
-        </div>
-        <Summary summary={summary} user={user} />
-      </>
-    )],
   };
 
   return (
@@ -184,11 +140,7 @@ export default function App() {
           title={detail}
           service={services.find((s) => s.id === detail.serviceId)}
           saved={watch.includes(detail.id)}
-          current={currentFor(detail.serviceId)}
-          user={user}
           onToggle={() => toggleWatch(detail.id)}
-          onLogin={() => { setDetail(null); setView("account"); }}
-          onSubscribe={(planId) => act(api.subscribe, "Abonnement bijgewerkt")(detail.serviceId, planId).then(() => setDetail(null))}
           onClose={() => setDetail(null)}
           onPlay={common.onPlay}
         />
