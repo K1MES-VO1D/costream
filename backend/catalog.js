@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { dir } from "./store.js";
 
 const cacheFile = path.join(path.dirname(fileURLToPath(import.meta.url)), ".catalog-cache.json");
 
@@ -44,10 +45,19 @@ const seed = [
 ].map((t) => ({ colors: colorsFor(t.id), free: true, ...t }));
 
 export const titles = [...seed];
+fs.watchFile(path.join(dir, "extra-titles.json"), { interval: 2000 }, () => setTitles(current));
 
+// Titles added with `node add-title.js`; they skip the quality filter because you picked them yourself
+const extraFile = path.join(dir, "extra-titles.json");
+const readExtras = () => {
+  try { return JSON.parse(fs.readFileSync(extraFile, "utf8")).map((t) => ({ colors: colorsFor(t.id), free: true, ...t })); } catch { return []; }
+};
+let current = [];
 const setTitles = (list) => {
+  current = list;
   const seen = new Set();
-  const merged = [...seed, ...list].filter((t) => t.serviceId !== "archive" && t.year >= MIN_YEAR && (seed.includes(t) || isQuality(t)) && !seen.has(t.id) && seen.add(t.id));
+  const extras = readExtras();
+  const merged = [...extras, ...seed, ...list].filter((t) => t.serviceId !== "archive" && t.year >= MIN_YEAR && (seed.includes(t) || extras.includes(t) || isQuality(t)) && !seen.has(t.id) && seen.add(t.id));
   titles.splice(0, titles.length, ...merged);
 };
 
@@ -76,7 +86,7 @@ async function fromDailymotion(search, type, limit) {
   }));
 }
 
-// Optional sources that need a free API key: set VIMEO_TOKEN / YOUTUBE_API_KEY to enable
+// Optional sources that need a free API key: set VIMEO_TOKEN to enable
 async function fromVimeo(query, type) {
   const url = `https://api.vimeo.com/videos?query=${encodeURIComponent(query)}&filter=CC&per_page=25&fields=uri,name,description,duration,created_time,pictures.base_link,embed.html`;
   const { data } = await get(url, { Authorization: `bearer ${process.env.VIMEO_TOKEN}` });
@@ -90,26 +100,12 @@ async function fromVimeo(query, type) {
   });
 }
 
-async function fromYoutube(query, type) {
-  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoLicense=creativeCommon&videoEmbeddable=true&videoDuration=${type === "film" ? "long" : "medium"}&maxResults=25&q=${encodeURIComponent(query)}&key=${process.env.YOUTUBE_API_KEY}`;
-  const { items } = await get(url);
-  return items.map((v) => ({
-    id: `y-${v.id.videoId}`, title: clean(v.snippet.title, 90), type, year: releaseYear(v.snippet.title, v.snippet.description), serviceId: "youtube",
-    why: clean(v.snippet.description) || "Gratis op YouTube.", youtubeId: v.id.videoId,
-    poster: v.snippet.thumbnails?.high?.url, colors: colorsFor(v.id.videoId), free: true,
-  }));
-}
-
 export async function refreshCatalog() {
   const jobs = [
     fromDailymotion("classic full movie creative commons", "film", 30),
     fromDailymotion("classic tv series full episode", "series", 25),
   ];
   if (process.env.VIMEO_TOKEN) jobs.push(fromVimeo("public domain film 1940s", "film"), fromVimeo("web series", "series"));
-  if (process.env.YOUTUBE_API_KEY) jobs.push(
-    ...["full movie public domain", "classic full movie creative commons", "classic western full movie", "classic horror full movie", "classic sci-fi full movie", "classic comedy full movie"].map((q) => fromYoutube(q, "film")),
-    ...["classic tv series full episode", "public domain tv series episode"].map((q) => fromYoutube(q, "series")),
-  );
   const results = await Promise.allSettled(jobs);
   const ok = results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value).filter((t) => t.title && isQuality(t));
   results.filter((r) => r.status === "rejected").forEach((r) => console.log("catalog source skipped:", r.reason.message));
@@ -121,7 +117,8 @@ export async function refreshCatalog() {
 }
 
 export function loadCache() {
-  try { setTitles(JSON.parse(fs.readFileSync(cacheFile, "utf8"))); } catch { /* no cache yet */ }
+  try { current = JSON.parse(fs.readFileSync(cacheFile, "utf8")); } catch { /* no cache yet */ }
+  setTitles(current);
 }
 
 // Finds a browser-playable file for an Internet Archive item so the app can use an HTML5 <video> tag

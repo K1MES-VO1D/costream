@@ -4,7 +4,7 @@ Free streaming hub: public-domain and open films and series from Internet Archiv
 (swipeable tips, search, watchlist, paste-a-link adder). Paid services are not included.
 
 The backend refreshes the catalog on start and every 6 hours from public APIs (Internet Archive search, Dailymotion API).
-Optional keys for more sources: `VIMEO_TOKEN` (Vimeo API, Creative Commons filter) and `YOUTUBE_API_KEY` (YouTube Data API, CC-licensed, embeddable).
+Optional key for more sources: `VIMEO_TOKEN` (Vimeo API, Creative Commons filter). YouTube wordt alleen ingesloten (geen API); voeg titels toe met `node backend/add-title.js <link>`.
 Internet Archive titles play in an HTML5 `<video>` tag when an mp4 exists, otherwise via the archive embed.
 
 - **Backend**: Node + Express, accounts and lists stored in `backend/data/db.json` (`backend/`, port 4000)
