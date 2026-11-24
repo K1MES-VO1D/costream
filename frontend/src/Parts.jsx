@@ -65,7 +65,7 @@ export function ServiceCard({ service, current, user, onLogin, onSubscribe, onCa
         </div>
         <div className="mt-auto d-flex gap-2">
           <button className="btn btn-primary flex-grow-1" disabled={user && current && !changed} onClick={() => (user ? onSubscribe(service.id, planId) : onLogin())}>
-            {!user ? "Log in om te abonneren" : !current ? "Abonneren" : changed ? "Pakket wijzigen" : "Geabonneerd ✓"}
+            {!user ? "Log in om te abonneren" : !current ? "Abonneren" : changed ? "Pakket wijzigen" : "Geabonneerd"}
           </button>
           {current && <button className="btn btn-outline-danger" onClick={() => onCancel(service.id)}>Opzeggen</button>}
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
+import { Icon } from "./Icons.jsx";
 
 const bg = (t) => ({ "--c1": t.colors[0], "--c2": t.colors[1] });
 const label = (t) => `${t.type === "film" ? "Film" : "Serie"} · ${t.year}`;
@@ -7,24 +8,24 @@ const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
 export const isPlayable = (t) => Boolean(t.videoUrl || t.embedUrl || t.youtubeId);
 
 function PlayButton({ title, service, onPlay }) {
-  if (isPlayable(title)) return <button className="pill-btn play" onClick={stop(() => onPlay(title))}>▶ Kijk nu gratis</button>;
-  if (service?.watchUrl) return <button className="pill-btn play" onClick={stop(() => openService(service, title))}>▶ Kijk op {service.name}</button>;
+  if (isPlayable(title)) return <button className="pill-btn play" onClick={stop(() => onPlay(title))}><Icon name="play" size={14} /> Kijk nu gratis</button>;
+  if (service?.watchUrl) return <button className="pill-btn play" onClick={stop(() => openService(service, title))}><Icon name="play" size={14} /> Kijk op {service.name}</button>;
   return null;
 }
 
 function WatchButton({ saved, onToggle }) {
   return (
     <button className={`pill-btn ${saved ? "saved" : ""}`} onClick={stop(onToggle)}>
-      {saved ? "✓ Op mijn lijst" : "+ Mijn lijst"}
+      <Icon name={saved ? "check" : "plus"} size={14} /> {saved ? "Op mijn lijst" : "Mijn lijst"}
     </button>
   );
 }
 
 // Intro/promo cards shown before the personal tips
 const promoCards = [
-  { id: "welcome", tag: "Welkom", title: "Welkom bij Difonti: al je streamingdiensten op één plek.", art: "📺", cta: "Doe de tour", action: "tour", cls: "welcome" },
-  { id: "bundle", tag: "Bundelkorting", title: "Combineer 3 diensten en bespaar 15% op je maandbedrag.", art: "💶", cta: "Bekijk bundels", action: "services", cls: "promo-green" },
-  { id: "tips", tag: "Zo werkt het", title: "Swipe door tips, bewaar wat je wilt kijken en zie direct waar het staat.", art: "👉", cta: "Naar mijn lijsten", action: "lists", cls: "promo-purple" },
+  { id: "welcome", tag: "Welkom", title: "Welkom bij Difonti: al je streamingdiensten op één plek.", art: "tv", cta: "Doe de tour", action: "tour", cls: "welcome" },
+  { id: "bundle", tag: "Bundelkorting", title: "Combineer 3 diensten en bespaar 15% op je maandbedrag.", art: "wallet", cta: "Bekijk bundels", action: "services", cls: "promo-green" },
+  { id: "tips", tag: "Zo werkt het", title: "Swipe door tips, bewaar wat je wilt kijken en zie direct waar het staat.", art: "swipe", cta: "Naar mijn lijsten", action: "lists", cls: "promo-purple" },
 ];
 
 // Swipeable "kijktips": the next card peeks in; works with touch and mouse drag
@@ -71,7 +72,7 @@ export function Tips({ titles, services, watch, onToggle, onOpen, onPlay, onActi
         {promoCards.map((c) => (
           <article key={c.id} className={`tip-card promo ${c.cls}`}>
             <div className="tip-content">
-              <div className="welcome-art">{c.art}</div>
+              <div className="welcome-art"><Icon name={c.art} size={72} /></div>
               <span className="tag">{c.tag}</span>
               <h2>{c.title}</h2>
               <button className="pill-btn" onClick={() => onAction(c.action)}>{c.cta}</button>
@@ -95,8 +96,8 @@ export function Tips({ titles, services, watch, onToggle, onOpen, onPlay, onActi
         {!titles.length && <p className="text-white-50 p-4">Geen tips voor deze filters. Pas je filters aan.</p>}
       </div>
       <div className="swipe-arrows">
-        <button onClick={() => go(index - 1)} disabled={index === 0} aria-label="Vorige">‹</button>
-        <button onClick={() => go(index + 1)} disabled={index >= count - 1} aria-label="Volgende">›</button>
+        <button onClick={() => go(index - 1)} disabled={index === 0} aria-label="Vorige"><Icon name="back" size={20} /></button>
+        <button onClick={() => go(index + 1)} disabled={index >= count - 1} aria-label="Volgende"><Icon name="next" size={20} /></button>
       </div>
     </>
   );
@@ -200,10 +201,10 @@ export function Lists({ titles, watch, user, onLogin, ...rest }) {
 }
 
 const tourSteps = [
-  ["🔎", "Filter op dienst", "Tik op FILTERS om alleen titels van jouw streamingdiensten, of alleen films of series te zien."],
-  ["👉", "Swipe door kijktips", "Swipe links en rechts, of gebruik de pijltjes. Tik op een kaart voor details en waar je kijkt."],
-  ["🔖", "Bewaar op je lijst", "Voeg titels toe aan Mijn lijsten, zodat je nooit meer hoeft te zoeken waar het staat."],
-  ["💶", "Beheer je abonnementen", "Via je account zie je al je diensten en bundelkorting in één overzicht."],
+  ["filters", "Filter op dienst", "Tik op FILTERS om alleen titels van jouw streamingdiensten, of alleen films of series te zien."],
+  ["swipe", "Swipe door kijktips", "Swipe links en rechts, of gebruik de pijltjes. Tik op een kaart voor details en waar je kijkt."],
+  ["bookmark", "Bewaar op je lijst", "Voeg titels toe aan Mijn lijsten, zodat je nooit meer hoeft te zoeken waar het staat."],
+  ["wallet", "Beheer je abonnementen", "Via je account zie je al je diensten en bundelkorting in één overzicht."],
 ];
 
 export function Tour({ onClose }) {
@@ -213,7 +214,7 @@ export function Tour({ onClose }) {
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet text-center" onClick={(e) => e.stopPropagation()}>
-        <div style={{ fontSize: "3rem" }}>{icon}</div>
+        <div className="tour-icon"><Icon name={icon} size={44} /></div>
         <h5>{title}</h5>
         <p className="text-secondary">{text}</p>
         <div className="d-flex gap-2">
@@ -241,9 +242,9 @@ export function Detail({ title, service, saved, onToggle, onClose, current, onSu
           </p>
         )}
         <div className="d-flex flex-wrap gap-2">
-          {isPlayable(title) && <button className="btn btn-danger flex-fill" onClick={() => onPlay(title)}>▶ Kijk nu gratis</button>}
-          {!title.free && service?.watchUrl && <button className="btn btn-danger flex-fill" onClick={() => openService(service, title)}>▶ Kijk op {service.name}</button>}
-          {!title.custom && <button className={`btn flex-fill ${saved ? "btn-dark" : "btn-outline-dark"}`} onClick={onToggle}>{saved ? "✓ Op mijn lijst" : "+ Mijn lijst"}</button>}
+          {isPlayable(title) && <button className="btn btn-danger flex-fill" onClick={() => onPlay(title)}><Icon name="play" size={14} /> Kijk nu gratis</button>}
+          {!title.free && service?.watchUrl && <button className="btn btn-danger flex-fill" onClick={() => openService(service, title)}><Icon name="play" size={14} /> Kijk op {service.name}</button>}
+          {!title.custom && <button className={`btn flex-fill ${saved ? "btn-dark" : "btn-outline-dark"}`} onClick={onToggle}><Icon name={saved ? "check" : "plus"} size={14} /> {saved ? "Op mijn lijst" : "Mijn lijst"}</button>}
           {!title.free && !current && <button className="btn btn-primary flex-fill" onClick={() => (user ? onSubscribe(cheapest.id) : onLogin())}>{user ? `Abonneer op ${service?.name}` : "Log in om te abonneren"}</button>}
         </div>
       </div>
@@ -269,7 +270,7 @@ export function Player({ title, onClose }) {
   return (
     <div className="player">
       <div className="player-bar">
-        <button className="pill-btn" onClick={onClose}>← Terug</button>
+        <button className="pill-btn" onClick={onClose}><Icon name="back" size={16} /> Terug</button>
         <strong className="text-truncate">{title.title}</strong>
       </div>
       {embed ? (
