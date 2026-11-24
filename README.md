@@ -7,7 +7,7 @@ The backend refreshes the catalog on start and every 6 hours from public APIs (I
 Optional keys for more sources: `VIMEO_TOKEN` (Vimeo API, Creative Commons filter) and `YOUTUBE_API_KEY` (YouTube Data API, CC-licensed, embeddable).
 Internet Archive titles play in an HTML5 `<video>` tag when an mp4 exists, otherwise via the archive embed.
 
-- **Backend**: Node + Express, JWT auth, in-memory data (`backend/`, port 4000)
+- **Backend**: Node + Express, accounts and lists stored in `backend/data/db.json` (`backend/`, port 4000)
 - **Frontend**: React + Vite + Bootstrap (`frontend/`)
 
 ## Develop (PC)
@@ -31,6 +31,10 @@ node server.js
 Optional from F-Droid: **Termux:Boot** (autostart), **Termux:Widget** (home-screen start button). Run `termux-wake-lock` to keep the server alive.
 
 ## API
-`POST /api/auth/register|login`, `GET /api/services`, `GET /api/titles?q=`, `GET /api/archive/:id/video`, `GET /api/watchlist`, `POST|DELETE /api/watchlist/:titleId`.
+`POST /api/auth/register|login|logout|password`, `GET|PATCH|DELETE /api/me`, `GET /api/services`, `GET /api/titles?q=`, `GET /api/archive/:id/video`, `GET /api/library`, `PUT|DELETE /api/library/:titleId`.
 
-Data is in memory (resets on restart); set `JWT_SECRET` in production.
+Accounts and lists persist in `backend/data/db.json` (owner-only, git-ignored; set `DATA_DIR` to move it, and mount it as a volume in Docker).
+
+**Security**: scrypt password hashing with per-user salt, 10+ character passwords, random revocable session tokens (only SHA-256 hashes stored, 30 days, max 10 per account), constant-time login with account lockout (5 failures → 15 min) and per-IP rate limits, helmet headers with a strict CSP, a locked-down CORS list (`ALLOWED_ORIGINS` for extras), 10 KB body limit, and password re-entry to delete an account. Serve over HTTPS if you expose it beyond your own phone.
+
+**Lists**: per title a status (Kijk ik / Wil ik kijken / Gezien / Pauze / Gestopt), a 1–10 score and a note; the Lists tab shows stats, tabs and sorting.

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import { Icon } from "./Icons.jsx";
+import { STATUS_LABEL, EntryEditor } from "./Library.jsx";
 import { normalizeLink, detectService, openLink, openInApp } from "./deeplinks.js";
 
 const bg = (t) => ({ "--c1": t.colors[0], "--c2": t.colors[1] });
@@ -17,7 +18,7 @@ function PlayButton({ title, onPlay }) {
 function WatchButton({ saved, onToggle }) {
   return (
     <button className={`pill-btn ${saved ? "saved" : ""}`} onClick={stop(onToggle)}>
-      <Icon name={saved ? "check" : "plus"} size={14} /> {saved ? "Op mijn lijst" : "Mijn lijst"}
+      <Icon name={saved ? "check" : "plus"} size={14} /> {saved ? (STATUS_LABEL[saved] || "Op mijn lijst") : "Mijn lijst"}
     </button>
   );
 }
@@ -90,7 +91,7 @@ export function Tips({ titles: allTitles, services, watch, onToggle, onOpen, onP
               <p>{t.why}</p>
               <div className="d-flex flex-wrap gap-2">
                 <PlayButton title={t} onPlay={onPlay} />
-                <WatchButton saved={watch.includes(t.id)} onToggle={() => onToggle(t.id)} />
+                <WatchButton saved={watch[t.id]} onToggle={() => onToggle(t.id)} />
               </div>
             </div>
           </article>
@@ -117,7 +118,7 @@ function PosterGrid({ titles, services, watch, onToggle, onOpen, onPlay }) {
               <strong className="d-block">{t.title}</strong>
               <small className="opacity-75">{label(t)}</small>
               <PlayButton title={t} onPlay={onPlay} />
-              {!t.custom && <WatchButton saved={watch.includes(t.id)} onToggle={() => onToggle(t.id)} />}
+              {!t.custom && <WatchButton saved={watch[t.id]} onToggle={() => onToggle(t.id)} />}
             </div>
           </div>
         </div>
@@ -216,21 +217,6 @@ export function Search({ custom, onAddCustom, ...props }) {
   );
 }
 
-export function Lists({ titles, watch, user, onLogin, ...rest }) {
-  if (!user)
-    return (
-      <div className="text-center py-5 text-white">
-        <p>Log in om je lijsten te bewaren.</p>
-        <button className="btn btn-light" onClick={onLogin}>Inloggen</button>
-      </div>
-    );
-  return watch.length ? (
-    <PosterGrid {...rest} watch={watch} titles={titles.filter((t) => watch.includes(t.id))} />
-  ) : (
-    <p className="text-white-50">Nog niets bewaard. Tik op “+ Mijn lijst” bij een titel om te beginnen.</p>
-  );
-}
-
 const tourSteps = [
   ["filters", "Filter op dienst", "Tik op FILTERS om alleen een bepaalde bron, of alleen films of series te zien."],
   ["swipe", "Swipe door kijktips", "Swipe links en rechts, of gebruik de pijltjes. Tik op een kaart voor details en kijk meteen gratis."],
@@ -257,19 +243,23 @@ export function Tour({ onClose }) {
   );
 }
 
-export function Detail({ title, service, saved, onToggle, onClose, onPlay }) {
+export function Detail({ title, service, entry, user, onSave, onRemove, onLogin, onClose, onPlay }) {
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet sheet-scroll" onClick={(e) => e.stopPropagation()}>
         <span className="tag" style={{ background: service?.color }}>{service?.name}</span>
         <small className="d-block text-secondary mt-2">{label(title)}{title.runtime && ` · ${title.runtime}`}</small>
         <h4>{title.title}</h4>
         <p>{title.why}</p>
-        <div className="d-flex flex-wrap gap-2">
+        <div className="d-flex flex-wrap gap-2 mb-3">
           {isPlayable(title) && <button className="btn btn-danger flex-fill" onClick={() => onPlay(title)}><Icon name="play" size={14} /> Kijk nu gratis</button>}
           {title.deepLink && <button className="btn btn-danger flex-fill" onClick={() => openInApp(title.deepLink)}><Icon name="play" size={14} /> Open {title.linkName || "link"}</button>}
-          {!title.custom && <button className={`btn flex-fill ${saved ? "btn-dark" : "btn-outline-dark"}`} onClick={onToggle}><Icon name={saved ? "check" : "plus"} size={14} /> {saved ? "Op mijn lijst" : "Mijn lijst"}</button>}
         </div>
+        {title.custom ? null : user ? (
+          <EntryEditor entry={entry} onSave={onSave} onRemove={onRemove} />
+        ) : (
+          <button className="btn btn-outline-dark w-100" onClick={onLogin}>Log in om te bewaren en te beoordelen</button>
+        )}
       </div>
     </div>
   );

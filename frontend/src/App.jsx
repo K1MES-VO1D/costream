@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { AuthForm } from "./Parts.jsx";
-import { Tips, Search, Lists, Tour, Detail, Player, WebFrame, Toast } from "./Discover.jsx";
+import { Lists, Account } from "./Library.jsx";
+import { Tips, Search, Tour, Detail, Player, WebFrame, Toast } from "./Discover.jsx";
 import { Icon, Logo } from "./Icons.jsx";
 
 function FiltersSheet({ services, active, setActive, type, setType, onClose }) {
@@ -35,7 +36,8 @@ export default function App() {
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("user") || "null"));
   const [services, setServices] = useState([]);
   const [titles, setTitles] = useState([]);
-  const [watch, setWatch] = useState([]);
+  const [library, setLibrary] = useState([]);
+  const watch = Object.fromEntries(library.map((e) => [e.id, e.status]));
   const [view, setView] = useState("tips");
   const [pie, setPie] = useState(false);
   const [error, setError] = useState("");
@@ -68,8 +70,8 @@ export default function App() {
     api.titles().then(setTitles).catch(() => {});
   }, []);
   useEffect(() => {
-    if (!user) return setWatch([]);
-    api.watchlist().then(setWatch).catch(() => {});
+    if (!user) return setLibrary([]);
+    api.library().then(setLibrary).catch(() => {});
   }, [user]);
 
   const onAuth = ({ token, user }) => {
@@ -78,14 +80,33 @@ export default function App() {
     setUser(user);
     setView("tips");
   };
-  const logout = () => {
-    localStorage.clear();
+  const logout = (deleted) => {
+    if (deleted !== true) api.logout().catch(() => {});
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setUser(null);
+    setLibrary([]);
+    setView("tips");
+  };
+  useEffect(() => {
+    const h = () => { logout(true); notify("Sessie verlopen, log opnieuw in"); };
+    window.addEventListener("difonti-expired", h);
+    return () => window.removeEventListener("difonti-expired", h);
+  }, []);
+  const saveEntry = async (id, patch) => {
+    try {
+      const e = await api.saveEntry(id, patch);
+      setLibrary((l) => [e, ...l.filter((x) => x.id !== id)]);
+      return e;
+    } catch (err) { setError(err.message); setTimeout(() => setError(""), 3000); }
+  };
+  const removeEntry = async (id) => {
+    try { await api.removeEntry(id); setLibrary((l) => l.filter((x) => x.id !== id)); } catch (err) { setError(err.message); }
   };
   const toggleWatch = async (id) => {
     if (!user) { notify("Log in om titels te bewaren"); return setView("account"); }
-    const adding = !watch.includes(id);
-    try { setWatch(await (adding ? api.addWatch(id) : api.removeWatch(id))); notify(adding ? "Toegevoegd aan Mijn lijst" : "Verwijderd van Mijn lijst"); } catch (e) { setError(e.message); }
+    if (watch[id]) { await removeEntry(id); notify("Verwijderd van mijn lijsten"); }
+    else if (await saveEntry(id, { status: "planned" })) notify("Toegevoegd: Wil ik kijken");
   };
   const onAction = (a) => (a === "tour" ? setTour(true) : setView(a));
 
@@ -94,14 +115,10 @@ export default function App() {
   const filterCount = activeServices.length + (type ? 1 : 0);
 
   const pages = {
-    lists: ["Mijn lijsten", <Lists {...common} titles={titles} user={user} onLogin={() => setView("account")} />],
+    lists: ["Mijn lijsten", <Lists library={library} services={services} user={user} onLogin={() => setView("account")} onOpen={setDetail} />],
     search: ["Zoek", <Search {...common} custom={custom} onAddCustom={addCustom} />],
     account: ["Account", user ? (
-      <div className="card card-body text-center">
-        <h4>Hoi, {user.name}</h4>
-        <p className="text-secondary">{user.email}</p>
-        <button className="btn btn-outline-danger" onClick={logout}>Uitloggen</button>
-      </div>
+      <Account user={user} library={library} notify={notify} onLogout={logout} onUser={(u) => { setUser(u); localStorage.setItem("user", JSON.stringify(u)); }} />
     ) : <AuthForm onAuth={onAuth} />],
   };
 
@@ -158,8 +175,11 @@ export default function App() {
         <Detail
           title={detail}
           service={services.find((s) => s.id === detail.serviceId)}
-          saved={watch.includes(detail.id)}
-          onToggle={() => toggleWatch(detail.id)}
+          entry={library.find((e) => e.id === detail.id)}
+          user={user}
+          onSave={(patch) => saveEntry(detail.id, patch)}
+          onRemove={() => removeEntry(detail.id)}
+          onLogin={() => { setDetail(null); setView("account"); }}
           onClose={() => setDetail(null)}
           onPlay={common.onPlay}
         />

@@ -2,5 +2,5 @@ node_modules/
 dist/
 frontend/android/app/build/
 frontend/android/.gradle/
-backend/.jwt-secret
 .catalog-cache.json
+backend/data/

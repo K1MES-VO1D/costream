@@ -12,17 +12,22 @@ async function request(path, { method = "GET", body } = {}) {
     body: body && JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Request failed");
+  if (res.status === 401 && getToken() && !path.startsWith("/auth/")) window.dispatchEvent(new Event("difonti-expired"));
+  if (!res.ok) throw new Error(data.error || "Er ging iets mis");
   return data;
 }
 
 export const api = {
   services: () => request("/services"),
   titles: (q = "") => request(`/titles?q=${encodeURIComponent(q)}`),
-  watchlist: () => request("/watchlist"),
-  addWatch: (id) => request(`/watchlist/${id}`, { method: "POST" }),
-  removeWatch: (id) => request(`/watchlist/${id}`, { method: "DELETE" }),
+  library: () => request("/library"),
+  saveEntry: (id, patch) => request(`/library/${encodeURIComponent(id)}`, { method: "PUT", body: patch }),
+  removeEntry: (id) => request(`/library/${encodeURIComponent(id)}`, { method: "DELETE" }),
   register: (b) => request("/auth/register", { method: "POST", body: b }),
   login: (b) => request("/auth/login", { method: "POST", body: b }),
+  logout: () => request("/auth/logout", { method: "POST" }),
+  rename: (name) => request("/me", { method: "PATCH", body: { name } }),
+  changePassword: (current, next) => request("/auth/password", { method: "POST", body: { current, next } }),
+  deleteAccount: (password) => request("/me", { method: "DELETE", body: { password } }),
   archiveVideo: (id) => request(`/archive/${encodeURIComponent(id)}/video`),
 };
