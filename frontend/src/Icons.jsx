@@ -27,8 +27,12 @@ export const Icon = ({ name, size = 26 }) => {
 
 export const Logo = () => (
   <svg width="38" height="38" viewBox="0 0 40 40" aria-label="Difonti">
-    <rect width="40" height="40" rx="12" fill="#e8b86a" />
-    <path d="M14 11h6.5a9 9 0 0 1 0 18H14z" fill="none" stroke="#10242f" strokeWidth="3" strokeLinejoin="round" />
-    <circle cx="21" cy="20" r="2.4" fill="#10242f" />
+    <defs>
+      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#f3cf8e" /><stop offset="1" stopColor="#d9974a" /></linearGradient>
+    </defs>
+    <rect width="40" height="40" rx="12" fill="url(#lg)" />
+    <path d="M12.5 9.5v21" stroke="#10242f" strokeWidth="3.2" strokeLinecap="round" />
+    <path d="M12.5 9.5h6a10.5 10.5 0 0 1 0 21h-6" fill="none" stroke="#10242f" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M18 15.5v9l7-4.5z" fill="#10242f" />
   </svg>
 );

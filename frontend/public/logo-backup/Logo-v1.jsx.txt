@@ -1,0 +1,7 @@
+export const Logo = () => (
+  <svg width="38" height="38" viewBox="0 0 40 40" aria-label="Difonti">
+    <rect width="40" height="40" rx="12" fill="#e8b86a" />
+    <path d="M14 11h6.5a9 9 0 0 1 0 18H14z" fill="none" stroke="#10242f" strokeWidth="3" strokeLinejoin="round" />
+    <circle cx="21" cy="20" r="2.4" fill="#10242f" />
+  </svg>
+);
