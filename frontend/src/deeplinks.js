@@ -54,15 +54,9 @@ export async function openLink(url) {
   else window.location.href = url;
 }
 
-// Opens the site in an in-app browser overlay (Chrome Custom Tab on Android): you stay inside Difonti,
-// log in with your own account and the service's own player handles playback and DRM
-export async function openInApp(url) {
+// Shows the site inside the app in a WebFrame panel (rendered by App via this event)
+export function openInApp(url) {
   if (blocked.test(url)) return;
   if (!/^https?:/i.test(url)) return openLink(url);
-  if (window.Capacitor?.isNativePlatform?.()) {
-    const { Browser } = await import("@capacitor/browser");
-    await Browser.open({ url, toolbarColor: "#10242f", presentationStyle: "fullscreen" });
-  } else {
-    window.open(url, "_blank", "noopener");
-  }
+  window.dispatchEvent(new CustomEvent("difonti-frame", { detail: { url } }));
 }

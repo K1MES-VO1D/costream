@@ -80,3 +80,6 @@ body { font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, Roboto,
 .btn-danger { --bs-btn-bg: var(--play); --bs-btn-border-color: var(--play); --bs-btn-hover-bg: #c2563c; --bs-btn-hover-border-color: #c2563c; --bs-btn-active-bg: #c2563c; --bs-btn-active-border-color: #c2563c; }
 .btn-dark { --bs-btn-bg: var(--brand-bg); --bs-btn-border-color: var(--brand-bg); --bs-btn-hover-bg: var(--ink); --bs-btn-hover-border-color: var(--ink); --bs-btn-active-bg: var(--ink); }
 .btn-outline-dark { --bs-btn-color: var(--brand-bg); --bs-btn-border-color: var(--brand-bg); --bs-btn-hover-bg: var(--brand-bg); --bs-btn-hover-border-color: var(--brand-bg); --bs-btn-active-bg: var(--brand-bg); }
+
+.webframe-body { flex: 1; min-height: 0; background: #000; }
+.webframe-body iframe { width: 100%; height: 100%; border: 0; }

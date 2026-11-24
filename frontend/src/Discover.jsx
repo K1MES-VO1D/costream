@@ -299,3 +299,46 @@ export function Player({ title, onClose }) {
 export function Toast({ message }) {
   return message ? <div className="toast-msg">{message}</div> : null;
 }
+
+// iframe-style panel: on Android a native WebView is placed exactly over the panel body
+// (streaming sites refuse real iframes); on the web an iframe is used where the site allows it
+export function WebFrame({ url, onClose }) {
+  const body = useRef(null);
+  const native = Boolean(window.Capacitor?.isNativePlatform?.());
+  let host = url;
+  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { /* keep raw url */ }
+
+  useEffect(() => {
+    if (!native) return;
+    let plugin;
+    let dead = false;
+    (async () => {
+      const mod = await import("@capgo/inappbrowser");
+      plugin = mod.InAppBrowser;
+      const r = body.current.getBoundingClientRect();
+      const k = window.devicePixelRatio || 1;
+      await plugin.openWebView({
+        url,
+        toolbarType: mod.ToolBarType.BLANK,
+        x: Math.round(r.left * k), y: Math.round(r.top * k),
+        width: Math.round(r.width * k), height: Math.round(r.height * k),
+      });
+      if (dead) plugin.close();
+    })().catch(() => openLink(url));
+    return () => { dead = true; plugin?.close().catch(() => {}); };
+  }, [url, native]);
+
+  return (
+    <div className="player">
+      <div className="player-bar">
+        <button className="pill-btn" onClick={onClose}><Icon name="back" size={16} /> Terug</button>
+        <strong className="text-truncate">{host}</strong>
+        <button className="pill-btn ms-auto" onClick={() => openLink(url)}>Open in app</button>
+      </div>
+      <div ref={body} className="webframe-body">
+        {!native && <iframe title={host} src={url} allow="autoplay; fullscreen; encrypted-media" allowFullScreen />}
+      </div>
+      {!native && <small className="text-white-50 p-2 text-center">Zie je niets? Deze site staat inbedden in een webbrowser niet toe; in de Android-app opent hij wel in dit venster.</small>}
+    </div>
+  );
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { AuthForm, ServiceCard, money, emptySummary } from "./Parts.jsx";
-import { Tips, Search, Lists, Tour, Detail, Player, Toast } from "./Discover.jsx";
+import { Tips, Search, Lists, Tour, Detail, Player, WebFrame, Toast } from "./Discover.jsx";
 import { Icon, Logo } from "./Icons.jsx";
 
 function Summary({ summary, user }) {
@@ -69,6 +69,12 @@ export default function App() {
   const [tour, setTour] = useState(false);
   const [detail, setDetail] = useState(null);
   const [playing, setPlaying] = useState(null);
+  const [frameUrl, setFrameUrl] = useState(null);
+  useEffect(() => {
+    const h = (e) => setFrameUrl(e.detail.url);
+    window.addEventListener("difonti-frame", h);
+    return () => window.removeEventListener("difonti-frame", h);
+  }, []);
   const [custom, setCustom] = useState(() => JSON.parse(localStorage.getItem("customTitles") || "[]"));
   const addCustom = (t) => {
     const next = [t, ...custom.filter((c) => c.id !== t.id)];
@@ -187,6 +193,7 @@ export default function App() {
           onPlay={common.onPlay}
         />
       )}
+      {frameUrl && <WebFrame url={frameUrl} onClose={() => setFrameUrl(null)} />}
       {playing && <Player title={playing} onClose={() => setPlaying(null)} />}
       <Toast message={toast} />
     </div>
