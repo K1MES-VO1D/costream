@@ -149,6 +149,10 @@ function LinkAdder({ onAdd }) {
       const title = info.title || name.trim();
       if (!title) return setMsg("Kon de titel niet ophalen; vul zelf een naam in.");
       onAdd({ ...base, id: `yt-${yt}`, title, serviceId: "gratis", why: `Gratis op YouTube${info.author_name ? ` van ${info.author_name}` : ""}.`, colors: ["#8c3b2a", "#e0a58f"], free: true, youtubeId: yt, poster: info.thumbnail_url });
+    } else if (/\.(mp4|webm|ogv|m4v|mov)(\?|#|$)/i.test(link)) {
+      const title = name.trim();
+      if (!title) return setMsg("Geef de titel een naam.");
+      onAdd({ ...base, id: `video-${Date.now()}`, title, serviceId: "gratis", why: "Direct afspeelbaar in de app.", colors: ["#2f5d73", "#8fb8c9"], free: true, videoUrl: link });
     } else {
       const { serviceId, host } = detectService(link);
       const title = name.trim();
@@ -162,7 +166,7 @@ function LinkAdder({ onAdd }) {
   return (
     <form onSubmit={add} className="mb-3">
       <div className="input-group mb-2">
-        <input className="form-control" placeholder="Plak een link (YouTube, Netflix, app-link…)" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <input className="form-control" placeholder="Plak een link (video-bestand, YouTube, Netflix…)" value={url} onChange={(e) => setUrl(e.target.value)} />
         <select className="form-select" style={{ maxWidth: 100 }} value={kind} onChange={(e) => setKind(e.target.value)}>
           <option value="film">Film</option>
           <option value="series">Serie</option>
@@ -274,24 +278,24 @@ export async function openService(service, title) {
   await openInApp(service.watchUrl.replace("{q}", encodeURIComponent(title.title)));
 }
 export function Player({ title, onClose }) {
+  const [useEmbed, setUseEmbed] = useState(!title.videoUrl && !title.embedUrl);
   const [failed, setFailed] = useState(false);
   const embed = title.youtubeId ? `https://www.youtube.com/embed/${title.youtubeId}?autoplay=1&rel=0&playsinline=1` : title.embedUrl;
+  // HTML5 <video> for direct files; the embed is only a fallback when the file can't be loaded
+  const showVideo = title.videoUrl && !useEmbed;
+  const onVideoError = () => (embed ? setUseEmbed(true) : setFailed(true));
   return (
     <div className="player">
       <div className="player-bar">
         <button className="pill-btn" onClick={onClose}><Icon name="back" size={16} /> Terug</button>
         <strong className="text-truncate">{title.title}</strong>
       </div>
-      {embed ? (
-        <>
-          <iframe title={title.title} src={embed} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
-          <a className="pill-btn m-3 text-center text-decoration-none" href={title.youtubeId ? `https://www.youtube.com/watch?v=${title.youtubeId}` : title.embedUrl} target="_blank" rel="noreferrer">Opent niet? Open in browser</a>
-        </>
-      ) : failed ? (
-        <p className="text-center text-white p-4">Deze video kon niet geladen worden. Controleer je internetverbinding.</p>
-      ) : (
-        <video src={title.videoUrl} controls autoPlay playsInline onError={() => setFailed(true)} />
-      )}
+      {showVideo ? (
+        <video src={title.videoUrl} controls autoPlay playsInline preload="metadata" onError={onVideoError} />
+      ) : embed ? (
+        <iframe title={title.title} src={embed} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
+      ) : null}
+      {failed && <p className="text-center text-white p-4">Deze video kon niet geladen worden. Controleer je internetverbinding.</p>}
     </div>
   );
 }

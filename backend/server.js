@@ -83,10 +83,10 @@ const titles = [
 
 // Free, legally playable titles (open-licensed Blender films and a public-domain classic)
 const freeTitles = [
-  ["f1", "Big Buck Bunny", "film", 2008, "Een enorm konijn neemt wraak op drie plaaggeesten. Open film van Blender.", ["#2e7d32", "#a5d6a7"], { youtubeId: "aqz-KE-bpKQ", runtime: "10 min" }],
-  ["f2", "Sintel", "film", 2010, "Een jonge vrouw zoekt haar draakje. Prachtig geanimeerd fantasy-avontuur.", ["#6a1b9a", "#ce93d8"], { youtubeId: "eRsGyueVLvQ", runtime: "15 min" }],
-  ["f3", "Tears of Steel", "film", 2012, "Sciencefiction in Amsterdam: een groep strijdt tegen robots. Gemaakt door Blender.", ["#01579b", "#4fc3f7"], { youtubeId: "R6MlUcmOul8", runtime: "12 min" }],
-  ["f4", "Elephants Dream", "film", 2006, "Eerste open film ooit: twee vreemde bewoners in een surrealistische machinewereld.", ["#bf360c", "#ffab91"], { youtubeId: "TLkA0RELQ1g", runtime: "11 min" }],
+  ["f1", "Big Buck Bunny", "film", 2008, "Een enorm konijn neemt wraak op drie plaaggeesten. Open film van Blender.", ["#2e7d32", "#a5d6a7"], { videoUrl: "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4", youtubeId: "aqz-KE-bpKQ", runtime: "10 min" }],
+  ["f2", "Sintel", "film", 2010, "Een jonge vrouw zoekt haar draakje. Prachtig geanimeerd fantasy-avontuur.", ["#6a1b9a", "#ce93d8"], { videoUrl: "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4", youtubeId: "eRsGyueVLvQ", runtime: "15 min" }],
+  ["f3", "Tears of Steel", "film", 2012, "Sciencefiction in Amsterdam: een groep strijdt tegen robots. Gemaakt door Blender.", ["#01579b", "#4fc3f7"], { videoUrl: "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4", youtubeId: "R6MlUcmOul8", runtime: "12 min" }],
+  ["f4", "Elephants Dream", "film", 2006, "Eerste open film ooit: twee vreemde bewoners in een surrealistische machinewereld.", ["#bf360c", "#ffab91"], { videoUrl: "https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4", youtubeId: "TLkA0RELQ1g", runtime: "11 min" }],
   ["f5", "Night of the Living Dead", "film", 1968, "Horrorklassieker (publiek domein) van George A. Romero, via het Internet Archive.", ["#212121", "#757575"], { embedUrl: "https://archive.org/embed/night_of_the_living_dead", runtime: "96 min" }],
 ].map(([id, title, type, year, why, colors, extra]) => ({ id, title, type, year, serviceId: "gratis", why, colors, free: true, ...extra }));
 titles.push(...freeTitles);
