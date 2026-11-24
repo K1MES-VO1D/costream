@@ -12,11 +12,12 @@ export const services = [
   { id: "youtube", name: "YouTube", category: "Gratis video", color: "#d9674b", description: "Gratis volledige films en series op YouTube.", free: true },
 ];
 
-// Only titles released in 1985 (the year of Back to the Future) or earlier are listed
-export const MAX_YEAR = 1985;
+// Only titles released in 1985 (the year of Back to the Future) or later are listed
+export const MIN_YEAR = 1985;
+const MAX_YEAR = new Date().getFullYear() + 1;
 const releaseYear = (...texts) => {
-  const m = texts.join(" ").match(/\b(1[89]\d\d)\b/);
-  return m && Number(m[1]) <= MAX_YEAR ? Number(m[1]) : undefined;
+  const years = (texts.join(" ").match(/\b(?:19|20)\d\d\b/g) || []).map(Number).filter((y) => y >= MIN_YEAR && y <= MAX_YEAR);
+  return years.length ? Math.max(...years) : undefined;
 };
 
 const palettes = [
@@ -36,14 +37,17 @@ const get = async (url, headers) => {
 
 // Seed titles that work even before the first refresh succeeds
 const seed = [
-  { id: "a-night_of_the_living_dead", title: "Night of the Living Dead", type: "film", year: 1968, serviceId: "archive", why: "Horrorklassieker (publiek domein) van George A. Romero.", archiveId: "night_of_the_living_dead", poster: "https://archive.org/services/img/night_of_the_living_dead" },
+  { id: "f1", title: "Big Buck Bunny", type: "film", year: 2008, serviceId: "youtube", why: "Een enorm konijn neemt wraak op drie plaaggeesten. Open film van Blender.", runtime: "10 min", videoUrl: "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4", youtubeId: "aqz-KE-bpKQ" },
+  { id: "f2", title: "Sintel", type: "film", year: 2010, serviceId: "youtube", why: "Een jonge vrouw zoekt haar draakje. Prachtig geanimeerd fantasy-avontuur.", runtime: "15 min", videoUrl: "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4", youtubeId: "eRsGyueVLvQ" },
+  { id: "f3", title: "Tears of Steel", type: "film", year: 2012, serviceId: "youtube", why: "Sciencefiction in Amsterdam: een groep strijdt tegen robots.", runtime: "12 min", youtubeId: "R6MlUcmOul8" },
+  { id: "f4", title: "Elephants Dream", type: "film", year: 2006, serviceId: "youtube", why: "Eerste open film ooit: een surrealistische machinewereld.", runtime: "11 min", videoUrl: "https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4", youtubeId: "TLkA0RELQ1g" },
 ].map((t) => ({ colors: colorsFor(t.id), free: true, ...t }));
 
 export const titles = [...seed];
 
 const setTitles = (list) => {
   const seen = new Set();
-  const merged = [...seed, ...list].filter((t) => t.year && t.year <= MAX_YEAR && !seen.has(t.id) && seen.add(t.id));
+  const merged = [...seed, ...list].filter((t) => t.year >= MIN_YEAR && !seen.has(t.id) && seen.add(t.id));
   titles.splice(0, titles.length, ...merged);
 };
 
@@ -51,7 +55,7 @@ async function fromArchive(query, type, rows) {
   const url = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(query)}&fl[]=identifier&fl[]=title&fl[]=description&fl[]=year&sort[]=downloads+desc&rows=${rows}&output=json`;
   const { response } = await get(url);
   return response.docs.map((d) => ({
-    id: `a-${d.identifier}`, title: clean(d.title, 90), type, year: Number(d.year) <= MAX_YEAR && Number(d.year) > 1800 ? Number(d.year) : releaseYear(d.title), serviceId: "archive",
+    id: `a-${d.identifier}`, title: clean(d.title, 90), type, year: Number(d.year) >= MIN_YEAR && Number(d.year) <= MAX_YEAR ? Number(d.year) : releaseYear(d.title), serviceId: "archive",
     why: clean(d.description) || "Publiek domein via het Internet Archive.", archiveId: d.identifier,
     poster: `https://archive.org/services/img/${d.identifier}`, colors: colorsFor(d.identifier), free: true,
   }));
@@ -93,13 +97,13 @@ async function fromYoutube(query, type) {
 
 export async function refreshCatalog() {
   const jobs = [
-    fromArchive(`collection:feature_films AND mediatype:movies AND year:[1900 TO ${MAX_YEAR}]`, "film", 80),
-    fromArchive(`collection:classic_tv AND mediatype:movies AND year:[1900 TO ${MAX_YEAR}]`, "series", 50),
-    fromDailymotion("classic full movie 1950s public domain", "film", 30),
-    fromDailymotion("classic tv series full episode 1950s", "series", 25),
+    fromArchive(`collection:feature_films AND mediatype:movies AND year:[${MIN_YEAR} TO ${MAX_YEAR}]`, "film", 80),
+    fromArchive(`collection:classic_tv AND mediatype:movies AND year:[${MIN_YEAR} TO ${MAX_YEAR}]`, "series", 50),
+    fromDailymotion("classic full movie creative commons", "film", 30),
+    fromDailymotion("classic tv series full episode", "series", 25),
   ];
   if (process.env.VIMEO_TOKEN) jobs.push(fromVimeo("public domain film 1940s", "film"), fromVimeo("web series", "series"));
-  if (process.env.YOUTUBE_API_KEY) jobs.push(fromYoutube("full movie public domain 1950s", "film"), fromYoutube("classic tv series full episode", "series"));
+  if (process.env.YOUTUBE_API_KEY) jobs.push(fromYoutube("full movie creative commons", "film"), fromYoutube("classic tv series full episode", "series"));
   const results = await Promise.allSettled(jobs);
   const ok = results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value).filter((t) => t.title);
   results.filter((r) => r.status === "rejected").forEach((r) => console.log("catalog source skipped:", r.reason.message));
