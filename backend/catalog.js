@@ -47,7 +47,7 @@ export const titles = [...seed];
 
 const setTitles = (list) => {
   const seen = new Set();
-  const merged = [...seed, ...list].filter((t) => t.year >= MIN_YEAR && (seed.includes(t) || isQuality(t)) && !seen.has(t.id) && seen.add(t.id));
+  const merged = [...seed, ...list].filter((t) => t.serviceId !== "archive" && t.year >= MIN_YEAR && (seed.includes(t) || isQuality(t)) && !seen.has(t.id) && seen.add(t.id));
   titles.splice(0, titles.length, ...merged);
 };
 
@@ -102,8 +102,6 @@ async function fromYoutube(query, type) {
 
 export async function refreshCatalog() {
   const jobs = [
-    fromArchive(`collection:feature_films AND mediatype:movies AND year:[${MIN_YEAR} TO ${MAX_YEAR}]`, "film", 150),
-    fromArchive(`collection:classic_tv AND mediatype:movies AND year:[${MIN_YEAR} TO ${MAX_YEAR}]`, "series", 80),
     fromDailymotion("classic full movie creative commons", "film", 30),
     fromDailymotion("classic tv series full episode", "series", 25),
   ];
