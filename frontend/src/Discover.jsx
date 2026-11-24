@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import { Icon } from "./Icons.jsx";
-import { normalizeLink, detectService, openLink } from "./deeplinks.js";
+import { normalizeLink, detectService, openLink, openInApp } from "./deeplinks.js";
 
 const bg = (t) => ({ "--c1": t.colors[0], "--c2": t.colors[1] });
 const label = (t) => `${t.type === "film" ? "Film" : "Serie"} · ${t.year}`;
@@ -10,7 +10,7 @@ export const isPlayable = (t) => Boolean(t.videoUrl || t.embedUrl || t.youtubeId
 
 function PlayButton({ title, service, onPlay }) {
   if (isPlayable(title)) return <button className="pill-btn play" onClick={stop(() => onPlay(title))}><Icon name="play" size={14} /> Kijk nu gratis</button>;
-  if (title.deepLink) return <button className="pill-btn play" onClick={stop(() => openLink(title.deepLink))}><Icon name="play" size={14} /> Kijk op {title.linkName || service?.name}</button>;
+  if (title.deepLink) return <button className="pill-btn play" onClick={stop(() => openInApp(title.deepLink))}><Icon name="play" size={14} /> Kijk op {title.linkName || service?.name}</button>;
   if (service?.watchUrl) return <button className="pill-btn play" onClick={stop(() => openService(service, title))}><Icon name="play" size={14} /> Kijk op {service.name}</button>;
   return null;
 }
@@ -257,8 +257,9 @@ export function Detail({ title, service, saved, onToggle, onClose, current, onSu
         )}
         <div className="d-flex flex-wrap gap-2">
           {isPlayable(title) && <button className="btn btn-danger flex-fill" onClick={() => onPlay(title)}><Icon name="play" size={14} /> Kijk nu gratis</button>}
-          {title.deepLink && <button className="btn btn-danger flex-fill" onClick={() => openLink(title.deepLink)}><Icon name="play" size={14} /> Kijk op {title.linkName || service?.name}</button>}
+          {title.deepLink && <button className="btn btn-danger flex-fill" onClick={() => openInApp(title.deepLink)}><Icon name="play" size={14} /> Kijk op {title.linkName || service?.name}</button>}
           {!title.deepLink && !title.free && service?.watchUrl && <button className="btn btn-danger flex-fill" onClick={() => openService(service, title)}><Icon name="play" size={14} /> Kijk op {service.name}</button>}
+          {(title.deepLink || (!title.free && service?.watchUrl)) && <button className="btn btn-outline-dark flex-fill" onClick={() => openLink(title.deepLink || service.watchUrl.replace("{q}", encodeURIComponent(title.title)))}>Open in {title.linkName || service?.name}-app</button>}
           {!title.custom && <button className={`btn flex-fill ${saved ? "btn-dark" : "btn-outline-dark"}`} onClick={onToggle}><Icon name={saved ? "check" : "plus"} size={14} /> {saved ? "Op mijn lijst" : "Mijn lijst"}</button>}
           {!title.free && !current && <button className="btn btn-primary flex-fill" onClick={() => (user ? onSubscribe(cheapest.id) : onLogin())}>{user ? `Abonneer op ${service?.name}` : "Log in om te abonneren"}</button>}
         </div>
@@ -270,7 +271,7 @@ export function Detail({ title, service, saved, onToggle, onClose, current, onSu
 // Plays direct video (HTML5), Internet Archive embeds, or YouTube embeds
 export async function openService(service, title) {
   if (!service?.watchUrl) return;
-  await openLink(service.watchUrl.replace("{q}", encodeURIComponent(title.title)));
+  await openInApp(service.watchUrl.replace("{q}", encodeURIComponent(title.title)));
 }
 export function Player({ title, onClose }) {
   const [failed, setFailed] = useState(false);
