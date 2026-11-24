@@ -1,6 +1,6 @@
 {
-  "appId": "nl.costream.app",
-  "appName": "Costream",
+  "appId": "nl.difonti.app",
+  "appName": "Difonti",
   "webDir": "dist",
   "server": { "androidScheme": "http", "cleartext": true },
   "android": { "allowMixedContent": true }

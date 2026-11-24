@@ -1,4 +1,4 @@
-package nl.costream.app;
+package nl.difonti.app;
 
 import com.getcapacitor.BridgeActivity;
 

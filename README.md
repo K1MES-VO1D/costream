@@ -1,4 +1,4 @@
-# Costream
+# Difonti
 
 Streaming discovery + multi-service subscription manager (Netflix, Hulu, SkyShowtime, HBO Max, Disney+, Prime Video, Videoland).
 Mobile-first PWA: swipeable tips, search, watchlist, subscriptions with bundle discounts (2 services 10%, 3 → 15%, 4+ → 20%).
@@ -19,7 +19,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173, proxies /ap
 3. In Termux:
 ```bash
 pkg update && pkg install nodejs git
-cd costream/backend && npm install
+cd difonti/backend && npm install
 node server.js
 ```
 4. Open `http://localhost:4000` in Chrome on the phone → menu → **Add to Home screen** (note: service worker/PWA install needs HTTPS or localhost; localhost works).

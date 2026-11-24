@@ -22,7 +22,7 @@ function WatchButton({ saved, onToggle }) {
 
 // Intro/promo cards shown before the personal tips
 const promoCards = [
-  { id: "welcome", tag: "Welkom", title: "Welkom bij Costream: al je streamingdiensten op één plek.", art: "📺", cta: "Doe de tour", action: "tour", cls: "welcome" },
+  { id: "welcome", tag: "Welkom", title: "Welkom bij Difonti: al je streamingdiensten op één plek.", art: "📺", cta: "Doe de tour", action: "tour", cls: "welcome" },
   { id: "bundle", tag: "Bundelkorting", title: "Combineer 3 diensten en bespaar 15% op je maandbedrag.", art: "💶", cta: "Bekijk bundels", action: "services", cls: "promo-green" },
   { id: "tips", tag: "Zo werkt het", title: "Swipe door tips, bewaar wat je wilt kijken en zie direct waar het staat.", art: "👉", cta: "Naar mijn lijsten", action: "lists", cls: "promo-purple" },
 ];
@@ -273,7 +273,10 @@ export function Player({ title, onClose }) {
         <strong className="text-truncate">{title.title}</strong>
       </div>
       {embed ? (
-        <iframe title={title.title} src={embed} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
+        <>
+          <iframe title={title.title} src={embed} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
+          <a className="pill-btn m-3 text-center text-decoration-none" href={title.youtubeId ? `https://www.youtube.com/watch?v=${title.youtubeId}` : title.embedUrl} target="_blank" rel="noreferrer">Opent niet? Open in browser</a>
+        </>
       ) : failed ? (
         <p className="text-center text-white p-4">Deze video kon niet geladen worden. Controleer je internetverbinding.</p>
       ) : (

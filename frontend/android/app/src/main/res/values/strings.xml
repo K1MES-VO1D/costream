@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Costream</string>
-    <string name="title_activity_main">Costream</string>
-    <string name="package_name">nl.costream.app</string>
-    <string name="custom_url_scheme">nl.costream.app</string>
+    <string name="app_name">Difonti</string>
+    <string name="title_activity_main">Difonti</string>
+    <string name="package_name">nl.difonti.app</string>
+    <string name="custom_url_scheme">nl.difonti.app</string>
 </resources>

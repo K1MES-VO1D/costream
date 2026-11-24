@@ -1,10 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Costream installer/launcher for Termux.
+# Difonti installer/launcher for Termux.
 # Usage: bash termux-install.sh
 set -e
 
 REPO="https://github.com/K1MES-VO1D/costream"
-DIR="$HOME/costream"
+DIR="$HOME/difonti"
 
 echo "==> Installing packages"
 pkg update -y
@@ -27,6 +27,6 @@ echo "==> Installing backend"
 cd "$DIR/backend"
 npm install --omit=dev
 
-echo "==> Starting Costream on http://localhost:4000 (Ctrl+C to stop)"
+echo "==> Starting Difonti on http://localhost:4000 (Ctrl+C to stop)"
 termux-wake-lock 2>/dev/null || true
 exec node server.js

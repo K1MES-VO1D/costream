@@ -1,4 +1,4 @@
-const CACHE = "costream-v1";
+const CACHE = "difonti-v1";
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/icon.svg"])));
   self.skipWaiting();

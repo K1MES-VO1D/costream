@@ -15,7 +15,7 @@ export const Icon = ({ name, size = 26 }) => {
 };
 
 export const Logo = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" aria-label="Costream">
+  <svg width="40" height="40" viewBox="0 0 40 40" aria-label="Difonti">
     <rect width="40" height="40" rx="10" fill="#f0b43c" />
     <path d="M14 10h12a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H14z" fill="#e24a3b" />
     <path d="M17 14.5v11l9-5.5z" fill="#fff" />

@@ -82,12 +82,11 @@ const titles = [
 ].map(([id, title, type, year, serviceId, why, colors]) => ({ id, title, type, year, serviceId, why, colors }));
 
 // Free, legally playable titles (open-licensed Blender films and a public-domain classic)
-const GTV = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample";
 const freeTitles = [
-  ["f1", "Big Buck Bunny", "film", 2008, "Een enorm konijn neemt wraak op drie plaaggeesten. Open film van Blender.", ["#2e7d32", "#a5d6a7"], { videoUrl: `${GTV}/BigBuckBunny.mp4`, runtime: "10 min" }],
-  ["f2", "Sintel", "film", 2010, "Een jonge vrouw zoekt haar draakje. Prachtig geanimeerd fantasy-avontuur.", ["#6a1b9a", "#ce93d8"], { videoUrl: `${GTV}/Sintel.mp4`, runtime: "15 min" }],
-  ["f3", "Tears of Steel", "film", 2012, "Sciencefiction in Amsterdam: een groep strijdt tegen robots. Gemaakt door Blender.", ["#01579b", "#4fc3f7"], { videoUrl: `${GTV}/TearsOfSteel.mp4`, runtime: "12 min" }],
-  ["f4", "Elephants Dream", "film", 2006, "Eerste open film ooit: twee vreemde bewoners in een surrealistische machinewereld.", ["#bf360c", "#ffab91"], { videoUrl: `${GTV}/ElephantsDream.mp4`, runtime: "11 min" }],
+  ["f1", "Big Buck Bunny", "film", 2008, "Een enorm konijn neemt wraak op drie plaaggeesten. Open film van Blender.", ["#2e7d32", "#a5d6a7"], { youtubeId: "aqz-KE-bpKQ", runtime: "10 min" }],
+  ["f2", "Sintel", "film", 2010, "Een jonge vrouw zoekt haar draakje. Prachtig geanimeerd fantasy-avontuur.", ["#6a1b9a", "#ce93d8"], { youtubeId: "eRsGyueVLvQ", runtime: "15 min" }],
+  ["f3", "Tears of Steel", "film", 2012, "Sciencefiction in Amsterdam: een groep strijdt tegen robots. Gemaakt door Blender.", ["#01579b", "#4fc3f7"], { youtubeId: "R6MlUcmOul8", runtime: "12 min" }],
+  ["f4", "Elephants Dream", "film", 2006, "Eerste open film ooit: twee vreemde bewoners in een surrealistische machinewereld.", ["#bf360c", "#ffab91"], { youtubeId: "TLkA0RELQ1g", runtime: "11 min" }],
   ["f5", "Night of the Living Dead", "film", 1968, "Horrorklassieker (publiek domein) van George A. Romero, via het Internet Archive.", ["#212121", "#757575"], { embedUrl: "https://archive.org/embed/night_of_the_living_dead", runtime: "96 min" }],
 ].map(([id, title, type, year, why, colors, extra]) => ({ id, title, type, year, serviceId: "gratis", why, colors, free: true, ...extra }));
 titles.push(...freeTitles);
