@@ -6,6 +6,9 @@ set -e
 REPO="https://github.com/K1MES-VO1D/difonti"
 DIR="${HOME:-$PWD}/difonti"
 
+# Shared storage (/storage/emulated, /sdcard) breaks git; always work from home.
+cd "${HOME:-/data/data/com.termux/files/home}"
+
 echo "==> Installing packages"
 if command -v pkg >/dev/null 2>&1; then
   pkg update -y
