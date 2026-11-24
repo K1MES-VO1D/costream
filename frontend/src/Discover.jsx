@@ -300,10 +300,9 @@ export function Toast({ message }) {
   return message ? <div className="toast-msg">{message}</div> : null;
 }
 
-// iframe-style panel: on Android a native WebView is placed exactly over the panel body
-// (streaming sites refuse real iframes); on the web an iframe is used where the site allows it
+// Native Android: the site loads in a full-window WebView inside the app (with back/forward/close toolbar).
+// Web preview: falls back to an iframe, which many streaming sites block.
 export function WebFrame({ url, onClose }) {
-  const body = useRef(null);
   const native = Boolean(window.Capacitor?.isNativePlatform?.());
   let host = url;
   try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { /* keep raw url */ }
@@ -312,22 +311,18 @@ export function WebFrame({ url, onClose }) {
     if (!native) return;
     let plugin;
     let dead = false;
+    let sub;
     (async () => {
       const mod = await import("@capgo/inappbrowser");
       plugin = mod.InAppBrowser;
-      const r = body.current.getBoundingClientRect();
-      const k = window.devicePixelRatio || 1;
-      await plugin.openWebView({
-        url,
-        toolbarType: mod.ToolBarType.BLANK,
-        x: Math.round(r.left * k), y: Math.round(r.top * k),
-        width: Math.round(r.width * k), height: Math.round(r.height * k),
-      });
+      sub = await plugin.addListener("closeEvent", () => { if (!dead) onClose(); });
+      await plugin.openWebView({ url, title: host, toolbarType: mod.ToolBarType.NAVIGATION, toolbarColor: "#10242f", toolbarTextColor: "#f6f1e8", showReloadButton: true });
       if (dead) plugin.close();
-    })().catch(() => openLink(url));
-    return () => { dead = true; plugin?.close().catch(() => {}); };
+    })().catch(() => { openLink(url); onClose(); });
+    return () => { dead = true; sub?.remove?.(); plugin?.close().catch(() => {}); };
   }, [url, native]);
 
+  if (native) return null;
   return (
     <div className="player">
       <div className="player-bar">
@@ -335,10 +330,8 @@ export function WebFrame({ url, onClose }) {
         <strong className="text-truncate">{host}</strong>
         <button className="pill-btn ms-auto" onClick={() => openLink(url)}>Open in app</button>
       </div>
-      <div ref={body} className="webframe-body">
-        {!native && <iframe title={host} src={url} allow="autoplay; fullscreen; encrypted-media" allowFullScreen />}
-      </div>
-      {!native && <small className="text-white-50 p-2 text-center">Zie je niets? Deze site staat inbedden in een webbrowser niet toe; in de Android-app opent hij wel in dit venster.</small>}
+      <div className="webframe-body"><iframe title={host} src={url} allow="autoplay; fullscreen; encrypted-media" allowFullScreen /></div>
+      <small className="text-white-50 p-2 text-center">Zie je niets? Deze site staat inbedden in een webbrowser niet toe; in de Android-app laadt hij wel in het venster.</small>
     </div>
   );
 }
