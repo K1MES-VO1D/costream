@@ -3,7 +3,7 @@
 # Usage: bash termux-install.sh
 set -e
 
-REPO="https://github.com/K1MES-VO1D/costream"
+REPO="https://github.com/K1MES-VO1D/difonti"
 DIR="$HOME/difonti"
 
 echo "==> Installing packages"
