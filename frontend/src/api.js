@@ -13,7 +13,7 @@ async function request(path, { method = "GET", body } = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && getToken() && !path.startsWith("/auth/")) window.dispatchEvent(new Event("difonti-expired"));
-  if (!res.ok) throw new Error(data.error || "Er ging iets mis");
+  if (!res.ok) throw Object.assign(new Error(data.error || "Er ging iets mis"), { data });
   return data;
 }
 
@@ -25,6 +25,10 @@ export const api = {
   removeEntry: (id) => request(`/library/${encodeURIComponent(id)}`, { method: "DELETE" }),
   register: (b) => request("/auth/register", { method: "POST", body: b }),
   login: (b) => request("/auth/login", { method: "POST", body: b }),
+  reset: (b) => request("/auth/reset", { method: "POST", body: b }),
+  totpSetup: () => request("/totp/setup", { method: "POST" }),
+  totpEnable: (code) => request("/totp/enable", { method: "POST", body: { code } }),
+  totpDisable: (password, code) => request("/totp/disable", { method: "POST", body: { password, code } }),
   logout: () => request("/auth/logout", { method: "POST" }),
   rename: (name) => request("/me", { method: "PATCH", body: { name } }),
   changePassword: (current, next) => request("/auth/password", { method: "POST", body: { current, next } }),

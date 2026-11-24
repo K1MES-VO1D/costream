@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { AuthForm } from "./Parts.jsx";
-import { Lists, Account } from "./Library.jsx";
+import { Lists, Account, TotpSetup } from "./Library.jsx";
 import { Tips, Search, Tour, Detail, Player, WebFrame, Toast } from "./Discover.jsx";
 import { Icon, Logo } from "./Icons.jsx";
 
@@ -80,6 +80,7 @@ export default function App() {
     setUser(user);
     setView("tips");
   };
+  const onUser = (u) => { setUser(u); localStorage.setItem("user", JSON.stringify(u)); };
   const logout = (deleted) => {
     if (deleted !== true) api.logout().catch(() => {});
     localStorage.removeItem("token");
@@ -118,9 +119,18 @@ export default function App() {
     lists: ["Mijn lijsten", <Lists library={library} services={services} user={user} onLogin={() => setView("account")} onOpen={setDetail} />],
     search: ["Zoek", <Search {...common} custom={custom} onAddCustom={addCustom} />],
     account: ["Account", user ? (
-      <Account user={user} library={library} notify={notify} onLogout={logout} onUser={(u) => { setUser(u); localStorage.setItem("user", JSON.stringify(u)); }} />
+      <Account user={user} library={library} notify={notify} onLogout={logout} onUser={onUser} />
     ) : <AuthForm onAuth={onAuth} />],
   };
+
+  if (user?.setupRequired)
+    return (
+      <div className="app"><section className="page">
+        <h1 className="h4 text-white mb-3">Welkom, {user.name}</h1>
+        <TotpSetup forced onDone={onUser} />
+        <button className="btn btn-link text-white-50" onClick={() => logout()}>Uitloggen</button>
+      </section></div>
+    );
 
   return (
     <div className="app">

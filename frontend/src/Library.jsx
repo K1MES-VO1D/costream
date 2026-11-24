@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { Icon } from "./Icons.jsx";
 
@@ -95,6 +95,8 @@ const Field = ({ label, ...p }) => (
 );
 
 export function Account({ user, library, onUser, onLogout, notify }) {
+  const [setup, setSetup] = useState(false);
+  const [off, setOff] = useState({ password: "", code: "" });
   const [name, setName] = useState(user.name);
   const [pw, setPw] = useState({ current: "", next: "" });
   const [del, setDel] = useState("");
@@ -116,15 +118,66 @@ export function Account({ user, library, onUser, onLogout, notify }) {
       </form>
       <form className="card card-body mb-3" onSubmit={(e) => { e.preventDefault(); run(async () => { await api.changePassword(pw.current, pw.next); setPw({ current: "", next: "" }); }, "Wachtwoord gewijzigd; andere apparaten zijn uitgelogd"); }}>
         <Field label="Huidig wachtwoord" type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} autoComplete="current-password" required />
-        <Field label="Nieuw wachtwoord (min. 10 tekens)" type="password" value={pw.next} minLength={10} maxLength={128} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" required />
+        <Field label="Nieuw wachtwoord (min. 6 tekens)" type="password" value={pw.next} minLength={6} maxLength={128} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" required />
         <button className="btn btn-dark">Wachtwoord wijzigen</button>
       </form>
+      {setup ? (
+        <div className="mb-3"><TotpSetup onSkip={() => setSetup(false)} onDone={(u) => { onUser(u); setSetup(false); notify("Authenticator aan"); }} /></div>
+      ) : user.totp ? (
+        <form className="card card-body mb-3" onSubmit={(e) => { e.preventDefault(); run(async () => { const r = await api.totpDisable(off.password, off.code); onUser(r.user); setOff({ password: "", code: "" }); }, "Authenticator uit"); }}>
+          <b className="mb-2">Authenticator staat aan</b>
+          <Field label="Wachtwoord" type="password" value={off.password} onChange={(e) => setOff({ ...off, password: e.target.value })} autoComplete="current-password" required />
+          <Field label="Authenticator- of back-upcode" value={off.code} onChange={(e) => setOff({ ...off, code: e.target.value })} autoComplete="one-time-code" required />
+          <button className="btn btn-outline-danger">Authenticator uitzetten</button>
+        </form>
+      ) : (
+        <button className="btn btn-outline-dark w-100 mb-3" onClick={() => setSetup(true)}>Authenticator-app instellen (2FA)</button>
+      )}
       <button className="btn btn-outline-dark w-100 mb-3" onClick={onLogout}>Uitloggen</button>
       <form className="card card-body" onSubmit={(e) => { e.preventDefault(); if (confirm("Je account en al je lijsten worden definitief verwijderd. Doorgaan?")) run(async () => { await api.deleteAccount(del); onLogout(true); }); }}>
         <small className="text-secondary mb-2">Account verwijderen wist ook al je lijsten.</small>
         <Field label="Wachtwoord ter bevestiging" type="password" value={del} onChange={(e) => setDel(e.target.value)} autoComplete="current-password" required />
         <button className="btn btn-outline-danger">Account verwijderen</button>
       </form>
+    </div>
+  );
+}
+
+// Authenticator (TOTP) setup: QR code, confirm with a first code, then show one-time backup codes
+export function TotpSetup({ forced, onDone, onSkip }) {
+  const [info, setInfo] = useState(null);
+  const [code, setCode] = useState("");
+  const [backup, setBackup] = useState(null);
+  const [err, setErr] = useState("");
+  const [user, setUser] = useState(null);
+  useEffect(() => { api.totpSetup().then(setInfo).catch((e) => setErr(e.message)); }, []);
+  const confirm = async (e) => {
+    e.preventDefault();
+    setErr("");
+    try { const r = await api.totpEnable(code); setBackup(r.backupCodes); setUser(r.user); } catch (x) { setErr(x.message); }
+  };
+  return (
+    <div className="card card-body mx-auto" style={{ maxWidth: 420 }}>
+      <h5>Beveilig je account</h5>
+      {err && <div className="alert alert-danger py-2">{err}</div>}
+      {backup ? (
+        <>
+          <p className="small">Authenticator staat aan. Bewaar deze back-upcodes veilig; elke code werkt één keer als je je telefoon kwijt bent. Ze worden niet opnieuw getoond.</p>
+          <pre className="backup-codes">{backup.join("\n")}</pre>
+          <button className="btn btn-dark" onClick={() => onDone(user)}>Ik heb ze bewaard</button>
+        </>
+      ) : info ? (
+        <form onSubmit={confirm}>
+          <p className="small">1. Scan de QR-code met Google Authenticator (of Authy, 1Password...). Op deze telefoon: voer de sleutel handmatig in.</p>
+          <img src={info.qr} alt="QR-code" width="200" height="200" className="d-block mx-auto mb-2" style={{ background: "#fff" }} />
+          <p className="small mb-1">Sleutel: <code className="user-select-all">{info.secret.match(/.{1,4}/g).join(" ")}</code></p>
+          <a className="small d-block mb-3" href={info.uri}>Openen in authenticator-app</a>
+          <p className="small mb-1">2. Vul de 6-cijferige code in:</p>
+          <input className="form-control mb-2" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} required />
+          <button className="btn btn-dark w-100">Bevestigen</button>
+          {!forced && <button type="button" className="btn btn-link w-100" onClick={onSkip}>Annuleren</button>}
+        </form>
+      ) : !err && <p>Laden…</p>}
     </div>
   );
 }

@@ -35,6 +35,8 @@ Optional from F-Droid: **Termux:Boot** (autostart), **Termux:Widget** (home-scre
 
 Accounts and lists persist in `backend/data/db.json` (owner-only, git-ignored; set `DATA_DIR` to move it, and mount it as a volume in Docker).
 
-**Security**: scrypt password hashing with per-user salt, 10+ character passwords, random revocable session tokens (only SHA-256 hashes stored, 30 days, max 10 per account), constant-time login with account lockout (5 failures → 15 min) and per-IP rate limits, helmet headers with a strict CSP, a locked-down CORS list (`ALLOWED_ORIGINS` for extras), 10 KB body limit, and password re-entry to delete an account. Serve over HTTPS if you expose it beyond your own phone.
+**Security**: scrypt password hashing with per-user salt, 6+ character passwords, random revocable session tokens (only SHA-256 hashes stored, 30 days, max 10 per account), constant-time login with account lockout (5 failures → 15 min) and per-IP rate limits, helmet headers with a strict CSP, a locked-down CORS list (`ALLOWED_ORIGINS` for extras), 10 KB body limit, and password re-entry to delete an account. Serve over HTTPS if you expose it beyond your own phone.
 
 **Lists**: per title a status (Kijk ik / Wil ik kijken / Gezien / Pauze / Gestopt), a 1–10 score and a note; the Lists tab shows stats, tabs and sorting.
+
+**Authenticator (TOTP, Google Authenticator etc.)**: new accounts must set it up right after registering (QR code + 8 one-time backup codes). Once on, logging in needs the 6-digit code. Secrets are AES-256-GCM encrypted, codes can't be replayed. Forgot your password? Use an authenticator/backup code in the app, or run `node ~/difonti/backend/reset-code.js <email>` in Termux (`--list` shows accounts). Stored passwords are one-way hashes and cannot be read back.

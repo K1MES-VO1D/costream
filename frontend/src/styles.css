@@ -127,3 +127,4 @@ body { font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, Roboto,
 .chip.watching { color: #7cc4d8; } .chip.planned { color: var(--accent); } .chip.completed { color: #8fd19e; } .chip.onhold { color: #c9b6e8; } .chip.dropped { color: #e08a7a; }
 .lib-list .score { font-family: Georgia, serif; font-size: 1.4rem; color: var(--accent); width: 2rem; text-align: center; }
 .entry-editor textarea { background: #fff; color: var(--ink); border-color: rgba(16, 36, 47, .2); }
+.backup-codes { background: #10242f; color: var(--accent); border-radius: .6rem; padding: .8rem; text-align: center; font-size: 1rem; letter-spacing: .08em; }

@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Tiny JSON-file database: atomic writes, owner-only permissions, survives restarts.
-const dir = process.env.DATA_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), "data");
+export const dir = process.env.DATA_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), "data");
 fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
 const file = path.join(dir, "db.json");
 

@@ -8,7 +8,9 @@ import rateLimit from "express-rate-limit";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { services, titles, refreshCatalog, loadCache, archiveVideoUrl } from "./catalog.js";
-import { db, save } from "./store.js";
+import { db, save, dir as dataDir } from "./store.js";
+import QRCode from "qrcode";
+import { newSecret, matchStep, otpauth, seal, unseal } from "./totp.js";
 
 const PORT = process.env.PORT || 4000;
 const scrypt = promisify(crypto.scrypt);
@@ -33,12 +35,9 @@ const verifyPassword = async (pw, stored) => {
 };
 const DUMMY_HASH = await hashPassword("dummy-password-for-timing"); // equalises timing for unknown emails
 
-const COMMON = new Set(["password123", "wachtwoord123", "1234567890", "qwertyuiop", "welcome123", "iloveyou123", "difonti123"]);
-const passwordProblem = (pw, email) => {
-  if (typeof pw !== "string" || pw.length < 10) return "Wachtwoord moet minstens 10 tekens hebben";
+const passwordProblem = (pw) => {
+  if (typeof pw !== "string" || pw.length < 6) return "Wachtwoord moet minstens 6 tekens hebben";
   if (pw.length > 128) return "Wachtwoord mag maximaal 128 tekens hebben";
-  if (COMMON.has(pw.toLowerCase()) || /^(.)\1+$/.test(pw)) return "Dit wachtwoord is te makkelijk te raden";
-  if (email && pw.toLowerCase().includes(email.split("@")[0]) && email.split("@")[0].length > 3) return "Gebruik je e-mailadres niet in je wachtwoord";
   return null;
 };
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/;
@@ -46,7 +45,19 @@ const cleanName = (n) => (typeof n === "string" ? n.replace(/[\u0000-\u001f<>]/g
 
 // ---- sessions: random opaque tokens, only a SHA-256 hash is stored, revocable ----
 const sha = (t) => crypto.createHash("sha256").update(t).digest("hex");
-const publicUser = (u) => ({ id: u.id, name: u.name, email: u.email });
+const publicUser = (u) => ({ id: u.id, name: u.name, email: u.email, totp: Boolean(u.totp?.enabled), setupRequired: Boolean(u.setupRequired) });
+const sha8 = (t) => sha(t.replace(/[\s-]/g, "").toUpperCase());
+// Checks an authenticator code (replay-protected) or a single-use backup code; consumes it on success
+const checkSecondFactor = (user, raw) => {
+  const code = String(raw ?? "").replace(/[\s-]/g, "").slice(0, 20);
+  if (user.totp?.enabled) {
+    const step = matchStep(unseal(user.totp.secret), code, user.totp.last || 0);
+    if (step) { user.totp.last = step; save(); return true; }
+    const h = sha8(code), i = user.totp.backup.indexOf(h);
+    if (i >= 0) { user.totp.backup.splice(i, 1); save(); return true; }
+  }
+  return false;
+};
 const newSession = (userId) => {
   const token = crypto.randomBytes(32).toString("base64url");
   db.sessions[sha(token)] = { userId, exp: Date.now() + SESSION_MS };
@@ -75,6 +86,8 @@ const auth = (req, res, next) => {
   if (!user) return res.status(401).json({ error: "Sessie verlopen, log opnieuw in" });
   req.user = user;
   req.sessionHash = hash;
+  if (user.setupRequired && !/^\/api\/(totp|me|auth\/logout)/.test(req.originalUrl))
+    return res.status(403).json({ error: "Beveilig eerst je account met een authenticator-app", setupRequired: true });
   next();
 };
 
@@ -125,10 +138,10 @@ app.post("/api/auth/register", authLimit, async (req, res) => {
   const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
   if (!name) return res.status(400).json({ error: "Vul een naam in" });
   if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: "Dit e-mailadres lijkt niet te kloppen" });
-  const problem = passwordProblem(req.body?.password, email);
+  const problem = passwordProblem(req.body?.password);
   if (problem) return res.status(400).json({ error: problem });
   if (findByEmail(email)) return res.status(409).json({ error: "Er bestaat al een account met dit e-mailadres" });
-  const user = { id: String(db.nextId++), name, email, passwordHash: await hashPassword(req.body.password), created: Date.now(), fails: 0, lockUntil: 0 };
+  const user = { id: String(db.nextId++), name, email, passwordHash: await hashPassword(req.body.password), created: Date.now(), fails: 0, lockUntil: 0, setupRequired: true };
   db.users[user.id] = user;
   db.library[user.id] = {};
   res.status(201).json({ token: newSession(user.id), user: publicUser(user) });
@@ -145,8 +158,84 @@ app.post("/api/auth/login", authLimit, async (req, res) => {
     save();
     return res.status(401).json({ error: "E-mailadres of wachtwoord klopt niet" });
   }
+  if (user.totp?.enabled) {
+    if (!req.body?.code) return res.status(401).json({ error: "Voer je authenticator-code in", needTotp: true });
+    if (!checkSecondFactor(user, req.body.code)) {
+      if (++user.fails >= 5) { user.fails = 0; user.lockUntil = Date.now() + 15 * 60_000; }
+      save();
+      return res.status(401).json({ error: "Authenticator-code klopt niet", needTotp: true });
+    }
+  }
   user.fails = 0;
   res.json({ token: newSession(user.id), user: publicUser(user) });
+});
+
+// Forgot password: a one-time code is generated on the device itself (`node reset-code.js <email>`) or, if enabled, by an authenticator/backup code,
+// so no email server is needed. Only a hash of the code is stored, it expires and allows 5 tries.
+const resetsFile = path.join(dataDir, "resets.json");
+const readResets = () => { try { return JSON.parse(fs.readFileSync(resetsFile, "utf8")); } catch { return {}; } };
+app.post("/api/auth/reset", authLimit, async (req, res) => {
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const code = typeof req.body?.code === "string" ? req.body.code.trim().toUpperCase().slice(0, 20) : "";
+  const bad = () => res.status(400).json({ error: "Code onjuist of verlopen" });
+  const user = findByEmail(email);
+  if (!user) { await verifyPassword("x", DUMMY_HASH); return bad(); }
+  if (user.lockUntil > Date.now()) return res.status(429).json({ error: "Account tijdelijk geblokkeerd. Probeer het later opnieuw." });
+  const problem = passwordProblem(req.body?.password);
+  if (problem) return res.status(400).json({ error: problem });
+  const resets = readResets();
+  const r = resets[email];
+  let ok = false;
+  if (user.totp?.enabled && checkSecondFactor(user, code)) ok = true; // authenticator or backup code
+  else if (r && r.exp > Date.now() && crypto.timingSafeEqual(Buffer.from(sha(code)), Buffer.from(r.hash))) {
+    ok = true; // one-time code made on the device with reset-code.js
+    delete resets[email];
+    fs.writeFileSync(resetsFile, JSON.stringify(resets), { mode: 0o600 });
+  }
+  if (!ok) {
+    if (r && ++r.tries >= 5) { delete resets[email]; fs.writeFileSync(resetsFile, JSON.stringify(resets), { mode: 0o600 }); }
+    if (++user.fails >= 5) { user.fails = 0; user.lockUntil = Date.now() + 15 * 60_000; }
+    save();
+    return bad();
+  }
+  user.passwordHash = await hashPassword(req.body.password);
+  user.fails = 0;
+  user.lockUntil = 0;
+  revokeAll(user.id);
+  res.json({ token: newSession(user.id), user: publicUser(user) });
+});
+
+// ---- authenticator app (TOTP) ----
+app.post("/api/totp/setup", auth, async (req, res) => {
+  if (req.user.totp?.enabled) return res.status(400).json({ error: "Authenticator staat al aan" });
+  const secret = newSecret();
+  req.user.totp = { enabled: false, secret: seal(secret), backup: [], last: 0 };
+  save();
+  const uri = otpauth(req.user.email, secret);
+  res.json({ secret, uri, qr: await QRCode.toDataURL(uri, { margin: 1, width: 240 }) });
+});
+
+app.post("/api/totp/enable", authLimit, auth, (req, res) => {
+  const t = req.user.totp;
+  if (!t || t.enabled) return res.status(400).json({ error: "Start eerst de installatie" });
+  const step = matchStep(unseal(t.secret), String(req.body?.code ?? "").replace(/\s/g, ""), 0);
+  if (!step) return res.status(400).json({ error: "Code klopt niet. Controleer de tijd op je telefoon en probeer opnieuw." });
+  const codes = Array.from({ length: 8 }, () => crypto.randomBytes(5).toString("hex").toUpperCase());
+  t.enabled = true;
+  t.last = step;
+  t.backup = codes.map(sha8);
+  delete req.user.setupRequired;
+  save();
+  res.json({ backupCodes: codes, user: publicUser(req.user) });
+});
+
+app.post("/api/totp/disable", authLimit, auth, async (req, res) => {
+  const pw = typeof req.body?.password === "string" ? req.body.password.slice(0, 128) : "";
+  if (!(await verifyPassword(pw, req.user.passwordHash))) return res.status(401).json({ error: "Wachtwoord klopt niet" });
+  if (req.user.totp?.enabled && !checkSecondFactor(req.user, req.body?.code)) return res.status(401).json({ error: "Authenticator-code klopt niet" });
+  delete req.user.totp;
+  save();
+  res.json({ user: publicUser(req.user) });
 });
 
 app.post("/api/auth/logout", auth, (req, res) => {
@@ -169,7 +258,7 @@ app.post("/api/auth/password", authLimit, auth, async (req, res) => {
   const { current, next } = req.body ?? {};
   if (typeof current !== "string" || !(await verifyPassword(current.slice(0, 128), req.user.passwordHash)))
     return res.status(401).json({ error: "Huidig wachtwoord klopt niet" });
-  const problem = passwordProblem(next, req.user.email);
+  const problem = passwordProblem(next);
   if (problem) return res.status(400).json({ error: problem });
   req.user.passwordHash = await hashPassword(next);
   revokeAll(req.user.id, req.sessionHash);
