@@ -43,3 +43,6 @@ Accounts and lists persist in `backend/data/db.json` (owner-only, git-ignored; s
 
 ## Wachtwoord vergeten per e-mail
 Zet in `backend/.env` (zie `.env.example`) `SMTP_URL` en `MAIL_FROM` van een SMTP-provider (Gmail app-wachtwoord, Brevo, ...). Een eigen mailserver op een telefoon komt niet aan (poort 25 geblokkeerd, spamfilters), daarom gebruikt Difonti SMTP. Zonder `SMTP_URL` verschijnt de mail in de serverlog en `data/outbox.log`.
+
+## Afspeellijst importeren (YouTube, zonder API)
+`node backend/add-playlist.js "https://www.youtube.com/playlist?list=..." [--type series]` leest de openbare afspeellijst en maakt van titels als `Filmtitel 1999` of `Filmtitel (1999)` een catalogus-item (titel + jaar, rest valt weg, geen beschrijving). Video's zonder jaar worden overgeslagen.
