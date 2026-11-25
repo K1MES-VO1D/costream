@@ -57,7 +57,7 @@ const setTitles = (list) => {
   current = list;
   const seen = new Set();
   const extras = readExtras();
-  const merged = [...extras, ...seed, ...list].filter((t) => t.serviceId !== "archive" && t.year >= MIN_YEAR && (seed.includes(t) || extras.includes(t) || isQuality(t)) && !seen.has(t.id) && seen.add(t.id));
+  const merged = [...extras, ...seed, ...list].filter((t) => t.serviceId !== "archive" && (extras.includes(t) || (t.year >= MIN_YEAR && (seed.includes(t) || isQuality(t)))) && !seen.has(t.id) && seen.add(t.id));
   titles.splice(0, titles.length, ...merged);
 };
 

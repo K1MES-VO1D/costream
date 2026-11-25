@@ -24,7 +24,7 @@ if (!yt && !vm && !dm && !file) { console.error("Link niet herkend. Gebruik YouT
 
 const title = await ask({ key: "title", text: "Titel" }, "");
 const type = await ask({ key: "type", text: "Type (film/series)" }, "film");
-const year = Number(await ask({ key: "year", text: "Jaar (1985 of later)" }));
+const year = Number(await ask({ key: "year", text: "Jaar" }));
 const why = await ask({ key: "why", text: "Beschrijving" }, "");
 const runtime = await ask({ key: "runtime", text: "Speelduur (bijv. 95 min)" }, "");
 const poster = await ask({ key: "poster", text: "Poster-URL (optioneel)" }, "");
@@ -32,7 +32,7 @@ rl.close();
 
 if (!title) { console.error("Titel is verplicht."); process.exit(1); }
 if (!["film", "series"].includes(type)) { console.error("Type moet film of series zijn."); process.exit(1); }
-if (!(year >= 1985 && year <= new Date().getFullYear() + 1)) { console.error("Jaar moet 1985 of later zijn."); process.exit(1); }
+if (!(year >= 1888 && year <= new Date().getFullYear() + 1)) { console.error("Vul een geldig jaar in."); process.exit(1); }
 
 const id = yt ? `yt-${yt}` : vm ? `vimeo-${vm}` : dm ? `dm-${dm}` : `x-${Buffer.from(url).toString("base64url").slice(0, 12)}`;
 const item = {
